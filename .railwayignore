@@ -1,0 +1,20 @@
+# Ignore Flutter/Dart files during Railway deployment
+pubspec.yaml
+pubspec.lock
+lib/
+test/
+android/
+ios/
+web/
+windows/
+linux/
+macos/
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+build/
+
+# Only deploy backend
+!backend/
+
