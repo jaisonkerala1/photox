@@ -7,7 +7,7 @@ class AppConstants {
   static const String appTagline = 'AI-Powered Photo Magic';
 
   // API Configuration
-  static const String baseUrl = 'http://localhost:3000/api';
+  static const String baseUrl = 'https://photox-production.up.railway.app/api';
   static const Duration apiTimeout = Duration(seconds: 30);
   static const Duration uploadTimeout = Duration(seconds: 120);
   
@@ -115,5 +115,7 @@ class ApiEndpoints {
   static const String history = '/history';
   static String deleteHistory(String id) => '/history/$id';
 }
+
+
 
 
