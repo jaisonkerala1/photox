@@ -2,7 +2,10 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    const conn = await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/photox', {
+    // Railway provides MONGO_URL, but we also support MONGODB_URI for flexibility
+    const mongoUri = process.env.MONGO_URL || process.env.MONGODB_URI || 'mongodb://localhost:27017/photox';
+    
+    const conn = await mongoose.connect(mongoUri, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
     });
@@ -15,5 +18,7 @@ const connectDB = async () => {
 };
 
 module.exports = connectDB;
+
+
 
 
