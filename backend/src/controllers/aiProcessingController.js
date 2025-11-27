@@ -23,12 +23,13 @@ try {
 }
 
 // Enhancement prompts based on mode - simple and natural
+// IMPORTANT: Preserve facial identity exactly - this is an enhancer, not a generator
 const ENHANCE_PROMPTS = {
-  auto: 'Enhance this photo naturally. Make it look better.',
-  portrait: 'Enhance this portrait. Improve lighting and skin naturally.',
-  landscape: 'Enhance this landscape photo. Make colors vivid.',
-  lowLight: 'Brighten this dark photo naturally. Reduce noise.',
-  hdr: 'Apply HDR effect to this photo.',
+  auto: 'Enhance this photo naturally. Keep all faces exactly the same - do not change any facial features, identity, or appearance of any person. Only improve lighting, colors, and clarity.',
+  portrait: 'Enhance this portrait naturally. CRITICAL: Keep the face exactly identical - same eyes, nose, mouth, skin, hair. Only improve lighting and reduce blemishes slightly. The person must look exactly like themselves.',
+  landscape: 'Enhance this landscape photo. Make colors vivid and improve clarity.',
+  lowLight: 'Brighten this dark photo naturally. Reduce noise. If there are faces, keep them exactly the same - do not alter any facial features.',
+  hdr: 'Apply HDR effect to this photo. If there are people, keep their faces exactly identical.',
 };
 
 // Helper to save base64 image to file
