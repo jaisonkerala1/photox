@@ -22,13 +22,13 @@ try {
   console.error('ERROR initializing GoogleGenerativeAI:', initError.message);
 }
 
-// Enhancement prompts based on mode
+// Enhancement prompts based on mode - simple and natural
 const ENHANCE_PROMPTS = {
-  auto: 'Enhance this image: improve clarity, colors, contrast, and overall quality while keeping it natural and realistic. Fix any exposure issues, reduce noise, and sharpen details. Return the enhanced image.',
-  portrait: 'Enhance this portrait photo: improve skin tones naturally, enhance lighting on the face, sharpen eyes and facial features, smooth skin texture subtly while keeping it realistic. Improve overall color balance and make the subject look their best. Return the enhanced image.',
-  landscape: 'Enhance this landscape/nature photo: boost the vibrancy of natural colors, improve sky details, enhance the depth and clarity of the scene, adjust contrast for dramatic effect, and make the scenery look stunning and vivid. Return the enhanced image.',
-  lowLight: 'Enhance this low-light/dark photo: significantly brighten the image while reducing noise and grain, recover shadow details, improve color accuracy, and make the image look like it was taken in better lighting conditions. Return the enhanced image.',
-  hdr: 'Apply HDR enhancement to this image: expand the dynamic range, bring out details in both highlights and shadows, increase local contrast, boost color saturation, and create a dramatic, professional HDR look. Return the enhanced image.',
+  auto: 'Enhance this photo naturally. Make it look better.',
+  portrait: 'Enhance this portrait. Improve lighting and skin naturally.',
+  landscape: 'Enhance this landscape photo. Make colors vivid.',
+  lowLight: 'Brighten this dark photo naturally. Reduce noise.',
+  hdr: 'Apply HDR effect to this photo.',
 };
 
 // Helper to save base64 image to file
