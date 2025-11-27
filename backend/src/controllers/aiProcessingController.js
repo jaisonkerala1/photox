@@ -70,9 +70,9 @@ exports.enhance = async (req, res, next) => {
 
     console.log(`[Enhance] Using prompt for ${enhanceType}`);
 
-    // Use gemini-2.0-flash-exp for image generation
+    // Use Nano Banana 3 (gemini-2.5-flash) for image generation
     const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-exp',
+      model: 'gemini-2.5-flash-preview-05-20',
       generationConfig: {
         responseModalities: ['image', 'text'],
       },
@@ -178,11 +178,11 @@ exports.enhancePublic = async (req, res, next) => {
     console.log('[EnhancePublic] Using prompt:', prompt.substring(0, 50) + '...');
 
     try {
-      console.log('[EnhancePublic] Getting model: gemini-2.0-flash-exp');
+      console.log('[EnhancePublic] Getting model: gemini-2.5-flash-preview-05-20');
       
-      // Use gemini-2.0-flash-exp for image generation
+      // Use Nano Banana 3 (gemini-2.5-flash) for image generation
       const model = genAI.getGenerativeModel({ 
-        model: 'gemini-2.0-flash-exp',
+        model: 'gemini-2.5-flash-preview-05-20',
         generationConfig: {
           responseModalities: ['image', 'text'],
         },
