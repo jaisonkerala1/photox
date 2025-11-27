@@ -5,6 +5,17 @@ const aiController = require('../controllers/aiProcessingController');
 const { auth, requireCredits, requirePro } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
 
+// Debug endpoint to check AI status
+router.get('/status', (req, res) => {
+  res.json({
+    status: 'OK',
+    apiKeyPresent: !!process.env.GOOGLE_AI_API_KEY,
+    apiKeyLength: process.env.GOOGLE_AI_API_KEY ? process.env.GOOGLE_AI_API_KEY.length : 0,
+    apiKeyPrefix: process.env.GOOGLE_AI_API_KEY ? process.env.GOOGLE_AI_API_KEY.substring(0, 10) + '...' : 'N/A',
+    timestamp: new Date().toISOString(),
+  });
+});
+
 // Public enhance endpoint (no auth - for testing/demo)
 router.post(
   '/enhance-public',

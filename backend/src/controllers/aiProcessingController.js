@@ -3,8 +3,24 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 
+// Debug: Log API key status on startup
+console.log('=== AI Processing Controller Loaded ===');
+console.log('GOOGLE_AI_API_KEY present:', !!process.env.GOOGLE_AI_API_KEY);
+console.log('GOOGLE_AI_API_KEY length:', process.env.GOOGLE_AI_API_KEY ? process.env.GOOGLE_AI_API_KEY.length : 0);
+console.log('GOOGLE_AI_API_KEY starts with:', process.env.GOOGLE_AI_API_KEY ? process.env.GOOGLE_AI_API_KEY.substring(0, 10) + '...' : 'N/A');
+
 // Initialize Google Generative AI with API key
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
+let genAI = null;
+try {
+  if (process.env.GOOGLE_AI_API_KEY) {
+    genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
+    console.log('GoogleGenerativeAI initialized successfully');
+  } else {
+    console.error('ERROR: GOOGLE_AI_API_KEY is not set!');
+  }
+} catch (initError) {
+  console.error('ERROR initializing GoogleGenerativeAI:', initError.message);
+}
 
 // Enhancement prompts based on mode
 const ENHANCE_PROMPTS = {
@@ -128,26 +144,42 @@ exports.enhance = async (req, res, next) => {
 
 // Public enhance endpoint (no auth required for testing)
 exports.enhancePublic = async (req, res, next) => {
+  console.log('\n=== [EnhancePublic] REQUEST RECEIVED ===');
+  console.log('[EnhancePublic] Time:', new Date().toISOString());
+  
   try {
     const startTime = Date.now();
     const { enhanceType = 'auto', imageBase64, mimeType = 'image/jpeg' } = req.body;
 
+    console.log('[EnhancePublic] enhanceType:', enhanceType);
+    console.log('[EnhancePublic] mimeType:', mimeType);
+    console.log('[EnhancePublic] imageBase64 length:', imageBase64 ? imageBase64.length : 0);
+    console.log('[EnhancePublic] API Key present:', !!process.env.GOOGLE_AI_API_KEY);
+    console.log('[EnhancePublic] genAI initialized:', !!genAI);
+
     if (!imageBase64) {
+      console.log('[EnhancePublic] ERROR: No image provided');
       return res.status(400).json({
         success: false,
         message: 'No image provided. Send imageBase64 in request body.',
       });
     }
 
-    console.log(`[EnhancePublic] Starting enhancement with type: ${enhanceType}`);
-    console.log(`[EnhancePublic] API Key present: ${!!process.env.GOOGLE_AI_API_KEY}`);
+    if (!genAI) {
+      console.log('[EnhancePublic] ERROR: genAI not initialized');
+      return res.status(500).json({
+        success: false,
+        message: 'AI service not initialized. Check GOOGLE_AI_API_KEY.',
+      });
+    }
 
     // Get the appropriate prompt
     const prompt = ENHANCE_PROMPTS[enhanceType] || ENHANCE_PROMPTS.auto;
-
-    console.log(`[EnhancePublic] Using prompt for ${enhanceType}`);
+    console.log('[EnhancePublic] Using prompt:', prompt.substring(0, 50) + '...');
 
     try {
+      console.log('[EnhancePublic] Getting model: gemini-2.0-flash-exp');
+      
       // Use gemini-2.0-flash-exp for image generation
       const model = genAI.getGenerativeModel({ 
         model: 'gemini-2.0-flash-exp',
@@ -155,6 +187,8 @@ exports.enhancePublic = async (req, res, next) => {
           responseModalities: ['image', 'text'],
         },
       });
+
+      console.log('[EnhancePublic] Model obtained, calling generateContent...');
 
       const result = await model.generateContent([
         prompt,
@@ -167,37 +201,48 @@ exports.enhancePublic = async (req, res, next) => {
       ]);
 
       console.log('[EnhancePublic] Received response from Gemini');
+      console.log('[EnhancePublic] Response object keys:', Object.keys(result));
 
       const response = result.response;
+      console.log('[EnhancePublic] response.candidates:', response.candidates ? response.candidates.length : 'none');
+      
       let enhancedImageData = null;
       let responseText = null;
 
       // Check for image in response
       if (response.candidates && response.candidates[0] && response.candidates[0].content) {
-        for (const part of response.candidates[0].content.parts) {
+        console.log('[EnhancePublic] Candidate content parts:', response.candidates[0].content.parts.length);
+        
+        for (let i = 0; i < response.candidates[0].content.parts.length; i++) {
+          const part = response.candidates[0].content.parts[i];
+          console.log(`[EnhancePublic] Part ${i} keys:`, Object.keys(part));
+          
           if (part.inlineData) {
             enhancedImageData = part.inlineData.data;
-            console.log('[EnhancePublic] Found enhanced image in response');
+            console.log('[EnhancePublic] Found enhanced image, length:', enhancedImageData.length);
           } else if (part.text) {
             responseText = part.text;
+            console.log('[EnhancePublic] Found text:', responseText.substring(0, 100));
           }
         }
+      } else {
+        console.log('[EnhancePublic] No candidates or content in response');
+        console.log('[EnhancePublic] Full response:', JSON.stringify(response, null, 2).substring(0, 500));
       }
 
       if (!enhancedImageData) {
         console.log('[EnhancePublic] No image in response, returning original');
-        // Return original image as "enhanced" (fallback)
         return res.json({
           success: true,
           enhancedImageBase64: imageBase64,
           processingTime: Date.now() - startTime,
           enhanceType,
-          note: responseText || 'Enhancement applied',
+          note: responseText || 'Enhancement applied (no image returned)',
         });
       }
 
       const processingTime = Date.now() - startTime;
-      console.log(`[EnhancePublic] Completed in ${processingTime}ms`);
+      console.log(`[EnhancePublic] SUCCESS! Completed in ${processingTime}ms`);
 
       res.json({
         success: true,
@@ -206,7 +251,10 @@ exports.enhancePublic = async (req, res, next) => {
         enhanceType,
       });
     } catch (aiError) {
-      console.error('[EnhancePublic] AI Error:', aiError.message);
+      console.error('[EnhancePublic] AI Error:', aiError);
+      console.error('[EnhancePublic] AI Error name:', aiError.name);
+      console.error('[EnhancePublic] AI Error message:', aiError.message);
+      console.error('[EnhancePublic] AI Error stack:', aiError.stack);
       
       // Return original image as fallback
       res.json({
@@ -214,11 +262,12 @@ exports.enhancePublic = async (req, res, next) => {
         enhancedImageBase64: imageBase64,
         processingTime: Date.now() - startTime,
         enhanceType,
-        note: 'Enhancement applied (processing mode)',
+        note: `Fallback mode: ${aiError.message}`,
       });
     }
   } catch (error) {
-    console.error('[EnhancePublic] Error:', error.message);
+    console.error('[EnhancePublic] FATAL Error:', error);
+    console.error('[EnhancePublic] Error stack:', error.stack);
     res.status(500).json({
       success: false,
       message: 'Enhancement failed',
