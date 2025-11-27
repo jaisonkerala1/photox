@@ -235,23 +235,50 @@ exports.enhancePublic = async (req, res, next) => {
         if (Array.isArray(content)) {
           console.log('[EnhancePublic] Content is array, length:', content.length);
           for (const part of content) {
-            console.log('[EnhancePublic] Part type:', part.type);
-            if (part.type === 'image_url' && part.image_url) {
+            console.log('[EnhancePublic] Part:', JSON.stringify(part).substring(0, 200));
+            
+            // Check for inline_data format (Gemini style)
+            if (part.inline_data && part.inline_data.data) {
+              enhancedImageData = part.inline_data.data;
+              console.log('[EnhancePublic] Found inline_data image, length:', enhancedImageData.length);
+            }
+            // Check for image_url format
+            else if (part.type === 'image_url' && part.image_url) {
               const dataUrl = part.image_url.url;
               if (dataUrl && dataUrl.startsWith('data:')) {
                 enhancedImageData = dataUrl.split(',')[1];
-                console.log('[EnhancePublic] Found image in content array, length:', enhancedImageData.length);
+                console.log('[EnhancePublic] Found image_url, length:', enhancedImageData.length);
               }
-            } else if (part.type === 'text') {
+            }
+            // Check for image type with data
+            else if (part.type === 'image' && part.data) {
+              enhancedImageData = part.data;
+              console.log('[EnhancePublic] Found image data, length:', enhancedImageData.length);
+            }
+            // Check for base64 directly in part
+            else if (part.b64_json) {
+              enhancedImageData = part.b64_json;
+              console.log('[EnhancePublic] Found b64_json, length:', enhancedImageData.length);
+            }
+            else if (part.type === 'text') {
               responseText = part.text;
-              console.log('[EnhancePublic] Found text:', responseText.substring(0, 100));
+              console.log('[EnhancePublic] Found text:', responseText ? responseText.substring(0, 100) : 'empty');
             }
           }
         } else if (typeof content === 'string') {
           console.log('[EnhancePublic] Content is string, length:', content.length);
+          // Check if it's base64 data (starts with image signature or is pure base64)
           if (content.startsWith('data:image')) {
             enhancedImageData = content.split(',')[1];
-            console.log('[EnhancePublic] Found base64 image in string');
+            console.log('[EnhancePublic] Found data URL image');
+          } else if (content.startsWith('/9j/') || content.startsWith('iVBOR')) {
+            // JPEG starts with /9j/, PNG starts with iVBOR
+            enhancedImageData = content;
+            console.log('[EnhancePublic] Found raw base64 image');
+          } else if (content.length > 1000 && !content.includes(' ')) {
+            // Likely base64 if long string without spaces
+            enhancedImageData = content;
+            console.log('[EnhancePublic] Assuming base64 image from long string');
           } else {
             responseText = content;
             console.log('[EnhancePublic] Text response:', content.substring(0, 200));
