@@ -19,7 +19,7 @@ console.log('Using model:', MODEL_NAME);
 // Enhancement prompts based on mode - simple and natural
 // IMPORTANT: Preserve facial identity exactly - this is an enhancer, not a generator
 const ENHANCE_PROMPTS = {
-  auto: 'Enhance this photo naturally. Keep all faces exactly the same - do not change any facial features, identity, or appearance of any person. Only improve lighting, colors, and clarity.',
+  auto: 'Enhance this photo to instagram grade naturally. Keep all faces exactly the same - do not change any facial features, identity, or appearance of any person. Only improve lighting, colors, and clarity.',
   portrait: 'Enhance this photo as portrait, naturally. Keep all faces exactly the same - do not change any facial features, identity, or appearance of any person. Only improve lighting, colors, and clarity.',
   landscape: 'Enhance this image as a landscape photo.',
   lowLight: 'Brighten this dark photo naturally. Reduce noise. If there are faces, keep them exactly the same - do not alter any facial features.',
