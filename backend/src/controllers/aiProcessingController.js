@@ -1,17 +1,16 @@
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-// OpenRouter configuration
-const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-// Use Gemini Flash for image tasks - supports image input/output
-const MODEL_NAME = 'google/gemini-flash-1.5';
+// Google AI configuration
+const GOOGLE_API_KEY = process.env.GOOGLE_AI_API_KEY;
+const genAI = GOOGLE_API_KEY ? new GoogleGenerativeAI(GOOGLE_API_KEY) : null;
 
 // Debug: Log API key status on startup
 console.log('=== AI Processing Controller Loaded ===');
-console.log('OPENROUTER_API_KEY present:', !!OPENROUTER_API_KEY);
-console.log('OPENROUTER_API_KEY length:', OPENROUTER_API_KEY ? OPENROUTER_API_KEY.length : 0);
-console.log('Using model:', MODEL_NAME);
+console.log('GOOGLE_AI_API_KEY present:', !!GOOGLE_API_KEY);
+console.log('Using Google Gemini API directly');
 
 // Enhancement prompts based on mode - simple and natural
 // IMPORTANT: Preserve facial identity exactly - this is an enhancer, not a generator
@@ -36,7 +35,55 @@ const saveBase64Image = (base64Data, filename) => {
   return `/uploads/${filename}`;
 };
 
-// Enhance photo using OpenRouter SDK + Gemini 3 Pro Image Preview
+// Helper function to call Google Gemini API for image enhancement
+async function callGeminiForImage(prompt, imageBase64, mimeType) {
+  if (!genAI) {
+    throw new Error('Google AI not initialized. Check GOOGLE_AI_API_KEY.');
+  }
+
+  const model = genAI.getGenerativeModel({ 
+    model: 'gemini-2.0-flash-exp',
+    generationConfig: {
+      responseModalities: ['image', 'text'],
+    },
+  });
+
+  const result = await model.generateContent([
+    prompt,
+    {
+      inlineData: {
+        mimeType: mimeType,
+        data: imageBase64,
+      },
+    },
+  ]);
+
+  return result;
+}
+
+// Parse Gemini response to extract image data
+function extractImageFromResponse(result) {
+  let enhancedImageData = null;
+  let responseText = null;
+
+  if (result.response && result.response.candidates && result.response.candidates[0]) {
+    const content = result.response.candidates[0].content;
+    if (content && content.parts) {
+      for (const part of content.parts) {
+        if (part.inlineData && part.inlineData.data) {
+          enhancedImageData = part.inlineData.data;
+          console.log('[Gemini] Found inlineData image, length:', enhancedImageData.length);
+        } else if (part.text) {
+          responseText = part.text;
+        }
+      }
+    }
+  }
+
+  return { enhancedImageData, responseText };
+}
+
+// Enhance photo using Google Gemini
 exports.enhance = async (req, res, next) => {
   try {
     const startTime = Date.now();
@@ -61,43 +108,10 @@ exports.enhance = async (req, res, next) => {
     const prompt = ENHANCE_PROMPTS[enhanceType] || ENHANCE_PROMPTS.auto;
 
     console.log(`[Enhance] Using prompt for ${enhanceType}`);
-    console.log('[Enhance] Calling OpenRouter SDK with model:', MODEL_NAME);
+    console.log('[Enhance] Calling Google Gemini API');
 
-    const result = await callOpenRouter(prompt, base64Image, mimeType);
-
-    console.log('[Enhance] Received response from OpenRouter');
-
-    let enhancedImageData = null;
-
-    // Parse OpenRouter SDK response
-    if (result.choices && result.choices[0] && result.choices[0].message) {
-      const message = result.choices[0].message;
-      
-      // Check for images array
-      if (message.images && message.images.length > 0) {
-        const imageUrl = message.images[0].image_url.url;
-        if (imageUrl.startsWith('data:')) {
-          enhancedImageData = imageUrl.split(',')[1];
-        }
-      }
-      
-      // Also check content
-      const content = message.content;
-      if (!enhancedImageData && content) {
-        if (Array.isArray(content)) {
-          for (const part of content) {
-            if (part.type === 'image_url' && part.image_url) {
-              const dataUrl = part.image_url.url;
-              if (dataUrl.startsWith('data:')) {
-                enhancedImageData = dataUrl.split(',')[1];
-              }
-            }
-          }
-        } else if (typeof content === 'string' && content.startsWith('data:image')) {
-          enhancedImageData = content.split(',')[1];
-        }
-      }
-    }
+    const result = await callGeminiForImage(prompt, base64Image, mimeType);
+    const { enhancedImageData } = extractImageFromResponse(result);
 
     if (!enhancedImageData) {
       console.error('[Enhance] No image data in response');
@@ -133,53 +147,6 @@ exports.enhance = async (req, res, next) => {
   }
 };
 
-// Helper function to call OpenRouter API for image enhancement
-async function callOpenRouter(prompt, imageBase64, mimeType) {
-  if (!OPENROUTER_API_KEY) {
-    throw new Error('OpenRouter API key not set');
-  }
-
-  const response = await fetch('https://openrouter.ai/api/v1/chat/completions', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://photox.app',
-      'X-Title': 'PhotoX AI Enhancer',
-    },
-    body: JSON.stringify({
-      model: MODEL_NAME,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: prompt,
-            },
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:${mimeType};base64,${imageBase64}`,
-              },
-            },
-          ],
-        },
-      ],
-      // Request image output
-      modalities: ['text', 'image'],
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error('[OpenRouter] API Error:', response.status, errorText);
-    throw new Error(`OpenRouter API error: ${response.status}`);
-  }
-
-  return response.json();
-}
-
 // Public enhance endpoint (no auth required for testing)
 exports.enhancePublic = async (req, res, next) => {
   console.log('\n=== [EnhancePublic] REQUEST RECEIVED ===');
@@ -192,7 +159,7 @@ exports.enhancePublic = async (req, res, next) => {
     console.log('[EnhancePublic] enhanceType:', enhanceType);
     console.log('[EnhancePublic] mimeType:', mimeType);
     console.log('[EnhancePublic] imageBase64 length:', imageBase64 ? imageBase64.length : 0);
-    console.log('[EnhancePublic] OpenRouter API Key present:', !!OPENROUTER_API_KEY);
+    console.log('[EnhancePublic] Google AI initialized:', !!genAI);
 
     if (!imageBase64) {
       console.log('[EnhancePublic] ERROR: No image provided');
@@ -202,11 +169,11 @@ exports.enhancePublic = async (req, res, next) => {
       });
     }
 
-    if (!OPENROUTER_API_KEY) {
-      console.log('[EnhancePublic] ERROR: OpenRouter API key not set');
+    if (!genAI) {
+      console.log('[EnhancePublic] ERROR: Google AI not initialized');
       return res.status(500).json({
         success: false,
-        message: 'AI service not initialized. Check OPENROUTER_API_KEY.',
+        message: 'AI service not initialized. Check GOOGLE_AI_API_KEY.',
       });
     }
 
@@ -215,81 +182,15 @@ exports.enhancePublic = async (req, res, next) => {
     console.log('[EnhancePublic] Using prompt:', prompt.substring(0, 50) + '...');
 
     try {
-      console.log('[EnhancePublic] Calling OpenRouter API with model:', MODEL_NAME);
+      console.log('[EnhancePublic] Calling Google Gemini API with model: gemini-2.0-flash-exp');
       
-      const result = await callOpenRouter(prompt, imageBase64, mimeType);
+      const result = await callGeminiForImage(prompt, imageBase64, mimeType);
+      const { enhancedImageData, responseText } = extractImageFromResponse(result);
 
-      console.log('[EnhancePublic] Received response from OpenRouter');
-      console.log('[EnhancePublic] Result keys:', Object.keys(result));
-
-      let enhancedImageData = null;
-      let responseText = null;
-
-      // Parse OpenRouter response
-      if (result.choices && result.choices[0] && result.choices[0].message) {
-        const message = result.choices[0].message;
-        console.log('[EnhancePublic] Message keys:', Object.keys(message));
-        
-        const content = message.content;
-        console.log('[EnhancePublic] Content type:', typeof content);
-        
-        if (Array.isArray(content)) {
-          console.log('[EnhancePublic] Content is array, length:', content.length);
-          for (const part of content) {
-            console.log('[EnhancePublic] Part:', JSON.stringify(part).substring(0, 200));
-            
-            // Check for inline_data format (Gemini style)
-            if (part.inline_data && part.inline_data.data) {
-              enhancedImageData = part.inline_data.data;
-              console.log('[EnhancePublic] Found inline_data image, length:', enhancedImageData.length);
-            }
-            // Check for image_url format
-            else if (part.type === 'image_url' && part.image_url) {
-              const dataUrl = part.image_url.url;
-              if (dataUrl && dataUrl.startsWith('data:')) {
-                enhancedImageData = dataUrl.split(',')[1];
-                console.log('[EnhancePublic] Found image_url, length:', enhancedImageData.length);
-              }
-            }
-            // Check for image type with data
-            else if (part.type === 'image' && part.data) {
-              enhancedImageData = part.data;
-              console.log('[EnhancePublic] Found image data, length:', enhancedImageData.length);
-            }
-            // Check for base64 directly in part
-            else if (part.b64_json) {
-              enhancedImageData = part.b64_json;
-              console.log('[EnhancePublic] Found b64_json, length:', enhancedImageData.length);
-            }
-            else if (part.type === 'text') {
-              responseText = part.text;
-              console.log('[EnhancePublic] Found text:', responseText ? responseText.substring(0, 100) : 'empty');
-            }
-          }
-        } else if (typeof content === 'string') {
-          console.log('[EnhancePublic] Content is string, length:', content.length);
-          // Check if it's base64 data (starts with image signature or is pure base64)
-          if (content.startsWith('data:image')) {
-            enhancedImageData = content.split(',')[1];
-            console.log('[EnhancePublic] Found data URL image');
-          } else if (content.startsWith('/9j/') || content.startsWith('iVBOR')) {
-            // JPEG starts with /9j/, PNG starts with iVBOR
-            enhancedImageData = content;
-            console.log('[EnhancePublic] Found raw base64 image');
-          } else if (content.length > 1000 && !content.includes(' ')) {
-            // Likely base64 if long string without spaces
-            enhancedImageData = content;
-            console.log('[EnhancePublic] Assuming base64 image from long string');
-          } else {
-            responseText = content;
-            console.log('[EnhancePublic] Text response:', content.substring(0, 200));
-          }
-        }
-      }
+      console.log('[EnhancePublic] Received response from Gemini');
 
       if (!enhancedImageData) {
         console.log('[EnhancePublic] No image in response, returning original');
-        console.log('[EnhancePublic] Full result:', JSON.stringify(result, null, 2).substring(0, 2000));
         return res.json({
           success: true,
           enhancedImageBase64: imageBase64,
@@ -349,40 +250,13 @@ exports.restore = async (req, res, next) => {
 
     const prompt = 'Restore this old/damaged photo: repair any scratches, tears, fading, or discoloration. Remove dust spots and damage marks. Enhance clarity and bring back the original quality of the photo while preserving its authentic vintage character. Return the restored image.';
 
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-exp',
-      generationConfig: {
-        responseModalities: ['image', 'text'],
-      },
-    });
+    const result = await callGeminiForImage(prompt, base64Image, mimeType);
+    const { enhancedImageData } = extractImageFromResponse(result);
 
-    const result = await model.generateContent([
-      prompt,
-      {
-        inlineData: {
-          mimeType: mimeType,
-          data: base64Image,
-        },
-      },
-    ]);
-
-    let enhancedImageData = null;
-    const response = result.response;
-
-    if (response.candidates && response.candidates[0] && response.candidates[0].content) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          enhancedImageData = part.inlineData.data;
-        }
-      }
-    }
-
-    if (!enhancedImageData) {
-      enhancedImageData = base64Image;
-    }
+    const finalImageData = enhancedImageData || base64Image;
 
     const restoredFilename = `restored_${uuidv4()}.png`;
-    const restoredUrl = saveBase64Image(enhancedImageData, restoredFilename);
+    const restoredUrl = saveBase64Image(finalImageData, restoredFilename);
 
     const processingTime = Date.now() - startTime;
 
@@ -390,7 +264,7 @@ exports.restore = async (req, res, next) => {
       success: true,
       originalUrl: `/uploads/${req.file.filename}`,
       resultUrl: restoredUrl,
-      enhancedImageBase64: enhancedImageData,
+      enhancedImageBase64: finalImageData,
       processingTime,
     });
   } catch (error) {
@@ -430,40 +304,13 @@ exports.aging = async (req, res, next) => {
 
     const prompt = `Transform this person's face to show how they would look at age ${targetAge}. Add realistic age-appropriate features like wrinkles, skin texture changes, and natural aging effects while maintaining their core facial features and identity. Return the aged image.`;
 
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-exp',
-      generationConfig: {
-        responseModalities: ['image', 'text'],
-      },
-    });
+    const result = await callGeminiForImage(prompt, base64Image, mimeType);
+    const { enhancedImageData } = extractImageFromResponse(result);
 
-    const result = await model.generateContent([
-      prompt,
-      {
-        inlineData: {
-          mimeType: mimeType,
-          data: base64Image,
-        },
-      },
-    ]);
-
-    let enhancedImageData = null;
-    const response = result.response;
-
-    if (response.candidates && response.candidates[0] && response.candidates[0].content) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          enhancedImageData = part.inlineData.data;
-        }
-      }
-    }
-
-    if (!enhancedImageData) {
-      enhancedImageData = base64Image;
-    }
+    const finalImageData = enhancedImageData || base64Image;
 
     const agedFilename = `aged_${uuidv4()}.png`;
-    const agedUrl = saveBase64Image(enhancedImageData, agedFilename);
+    const agedUrl = saveBase64Image(finalImageData, agedFilename);
 
     const processingTime = Date.now() - startTime;
 
@@ -471,7 +318,7 @@ exports.aging = async (req, res, next) => {
       success: true,
       originalUrl: `/uploads/${req.file.filename}`,
       resultUrl: agedUrl,
-      enhancedImageBase64: enhancedImageData,
+      enhancedImageBase64: finalImageData,
       processingTime,
       targetAge,
     });
@@ -508,40 +355,13 @@ exports.styleTransfer = async (req, res, next) => {
 
     const prompt = stylePrompts[style] || stylePrompts.anime;
 
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-exp',
-      generationConfig: {
-        responseModalities: ['image', 'text'],
-      },
-    });
+    const result = await callGeminiForImage(prompt, base64Image, mimeType);
+    const { enhancedImageData } = extractImageFromResponse(result);
 
-    const result = await model.generateContent([
-      prompt,
-      {
-        inlineData: {
-          mimeType: mimeType,
-          data: base64Image,
-        },
-      },
-    ]);
-
-    let enhancedImageData = null;
-    const response = result.response;
-
-    if (response.candidates && response.candidates[0] && response.candidates[0].content) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          enhancedImageData = part.inlineData.data;
-        }
-      }
-    }
-
-    if (!enhancedImageData) {
-      enhancedImageData = base64Image;
-    }
+    const finalImageData = enhancedImageData || base64Image;
 
     const styledFilename = `styled_${uuidv4()}.png`;
-    const styledUrl = saveBase64Image(enhancedImageData, styledFilename);
+    const styledUrl = saveBase64Image(finalImageData, styledFilename);
 
     const processingTime = Date.now() - startTime;
 
@@ -549,7 +369,7 @@ exports.styleTransfer = async (req, res, next) => {
       success: true,
       originalUrl: `/uploads/${req.file.filename}`,
       resultUrl: styledUrl,
-      enhancedImageBase64: enhancedImageData,
+      enhancedImageBase64: finalImageData,
       processingTime,
       style,
     });
@@ -589,40 +409,13 @@ exports.upscale = async (req, res, next) => {
 
     const prompt = 'Upscale and enhance this image to higher resolution. Improve sharpness, add fine details, reduce any artifacts or blur, and make the image look crisp and high-definition. Return the upscaled image.';
 
-    const model = genAI.getGenerativeModel({ 
-      model: 'gemini-2.0-flash-exp',
-      generationConfig: {
-        responseModalities: ['image', 'text'],
-      },
-    });
+    const result = await callGeminiForImage(prompt, base64Image, mimeType);
+    const { enhancedImageData } = extractImageFromResponse(result);
 
-    const result = await model.generateContent([
-      prompt,
-      {
-        inlineData: {
-          mimeType: mimeType,
-          data: base64Image,
-        },
-      },
-    ]);
-
-    let enhancedImageData = null;
-    const response = result.response;
-
-    if (response.candidates && response.candidates[0] && response.candidates[0].content) {
-      for (const part of response.candidates[0].content.parts) {
-        if (part.inlineData) {
-          enhancedImageData = part.inlineData.data;
-        }
-      }
-    }
-
-    if (!enhancedImageData) {
-      enhancedImageData = base64Image;
-    }
+    const finalImageData = enhancedImageData || base64Image;
 
     const upscaledFilename = `upscaled_${uuidv4()}.png`;
-    const upscaledUrl = saveBase64Image(enhancedImageData, upscaledFilename);
+    const upscaledUrl = saveBase64Image(finalImageData, upscaledFilename);
 
     const processingTime = Date.now() - startTime;
 
@@ -630,7 +423,7 @@ exports.upscale = async (req, res, next) => {
       success: true,
       originalUrl: `/uploads/${req.file.filename}`,
       resultUrl: upscaledUrl,
-      enhancedImageBase64: enhancedImageData,
+      enhancedImageBase64: finalImageData,
       processingTime,
     });
   } catch (error) {

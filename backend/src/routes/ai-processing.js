@@ -9,11 +9,10 @@ const { upload } = require('../middleware/upload');
 router.get('/status', (req, res) => {
   res.json({
     status: 'OK',
-    provider: 'OpenRouter',
-    model: 'google/gemini-3-pro-image-preview',
-    apiKeyPresent: !!process.env.OPENROUTER_API_KEY,
-    apiKeyLength: process.env.OPENROUTER_API_KEY ? process.env.OPENROUTER_API_KEY.length : 0,
-    apiKeyPrefix: process.env.OPENROUTER_API_KEY ? process.env.OPENROUTER_API_KEY.substring(0, 15) + '...' : 'N/A',
+    provider: 'Google Gemini',
+    model: 'gemini-2.0-flash-exp',
+    apiKeyPresent: !!process.env.GOOGLE_AI_API_KEY,
+    apiKeyLength: process.env.GOOGLE_AI_API_KEY ? process.env.GOOGLE_AI_API_KEY.length : 0,
     timestamp: new Date().toISOString(),
   });
 });
