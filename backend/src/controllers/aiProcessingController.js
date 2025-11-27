@@ -146,23 +146,15 @@ async function callOpenRouter(prompt, imageBase64, mimeType) {
     throw new Error('OpenRouter SDK not initialized');
   }
 
+  // Format: prompt text with image as data URL
+  const messageContent = `${prompt}\n\n![input image](data:${mimeType};base64,${imageBase64})`;
+
   const result = await openrouter.chat.send({
     model: MODEL_NAME,
     messages: [
       {
         role: 'user',
-        content: [
-          {
-            type: 'text',
-            text: prompt,
-          },
-          {
-            type: 'image_url',
-            image_url: {
-              url: `data:${mimeType};base64,${imageBase64}`,
-            },
-          },
-        ],
+        content: messageContent,
       },
     ],
     modalities: ['image', 'text'],
