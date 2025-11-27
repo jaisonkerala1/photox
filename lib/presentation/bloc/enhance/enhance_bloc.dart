@@ -1,7 +1,10 @@
 import 'dart:async';
 import 'dart:io';
+import 'dart:ui' as ui;
+import 'package:flutter/rendering.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:image/image.dart' as img;
 
 import '../../../data/services/enhance_service.dart';
 import 'enhance_event.dart';
@@ -169,9 +172,31 @@ class EnhanceBloc extends Bloc<EnhanceEvent, EnhanceState> {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final savePath = '${directory.path}/enhanced_$timestamp.png';
 
-      // Copy enhanced image to save location
+      // Read the enhanced image
       final originalFile = File(state.enhancedImagePath!);
-      await originalFile.copy(savePath);
+      final bytes = await originalFile.readAsBytes();
+      
+      // Apply brightness adjustment if needed
+      if (event.brightness != 0.0) {
+        // Decode image
+        final image = img.decodeImage(bytes);
+        if (image != null) {
+          // Apply brightness adjustment
+          // brightness: -0.5 to 0.5 maps to -128 to 128
+          final brightnessValue = (event.brightness * 256).toInt();
+          final adjustedImage = img.adjustColor(image, brightness: brightnessValue);
+          
+          // Encode and save
+          final adjustedBytes = img.encodePng(adjustedImage);
+          await File(savePath).writeAsBytes(adjustedBytes);
+        } else {
+          // Fallback: just copy the file
+          await originalFile.copy(savePath);
+        }
+      } else {
+        // No brightness adjustment, just copy
+        await originalFile.copy(savePath);
+      }
 
       emit(state.copyWith(
         status: EnhanceStatus.saved,
@@ -183,7 +208,7 @@ class EnhanceBloc extends Bloc<EnhanceEvent, EnhanceState> {
     } catch (e) {
       emit(state.copyWith(
         status: EnhanceStatus.error,
-        errorMessage: 'Failed to save image.',
+        errorMessage: 'Failed to save image: ${e.toString()}',
       ));
     }
   }

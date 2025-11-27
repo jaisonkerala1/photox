@@ -51,6 +51,7 @@ class _EnhanceScreenContentState extends State<_EnhanceScreenContent> {
 
   double _demoSliderPosition = 0.5;
   bool _isUsingDemo = true;
+  double _brightness = 0.0; // -1.0 to 1.0, 0 is normal
 
   @override
   Widget build(BuildContext context) {
@@ -89,6 +90,12 @@ class _EnhanceScreenContentState extends State<_EnhanceScreenContent> {
 
                         // Enhancement Type Pills
                         _buildEnhanceTypePills(context, state),
+
+                        const SizedBox(height: 20),
+
+                        // Brightness Control (only show after enhancement)
+                        if (state.isEnhanced && !_isUsingDemo)
+                          _buildBrightnessControl(),
 
                         const SizedBox(height: 32),
                       ],
@@ -346,15 +353,18 @@ class _EnhanceScreenContentState extends State<_EnhanceScreenContent> {
           fit: BoxFit.cover,
         ),
 
-        // Enhanced Image (Clipped)
+        // Enhanced Image (Clipped) with brightness adjustment
         if (state.isEnhanced && state.enhancedImagePath != null)
           ClipRect(
             clipper: _RectClipper(sliderX),
-            child: Image.file(
-              File(state.enhancedImagePath!),
-              width: width,
-              height: height,
-              fit: BoxFit.cover,
+            child: ColorFiltered(
+              colorFilter: ColorFilter.matrix(_brightnessMatrix(_brightness)),
+              child: Image.file(
+                File(state.enhancedImagePath!),
+                width: width,
+                height: height,
+                fit: BoxFit.cover,
+              ),
             ),
           ),
       ],
@@ -726,6 +736,121 @@ class _EnhanceScreenContentState extends State<_EnhanceScreenContent> {
     }
   }
 
+  Widget _buildBrightnessControl() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Row(
+                children: [
+                  Icon(
+                    Icons.brightness_6_rounded,
+                    size: 18,
+                    color: AppColors.textSecondary,
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Brightness',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                decoration: BoxDecoration(
+                  color: Color(0xFF7C3AED).withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  _brightness == 0 
+                      ? '0' 
+                      : (_brightness > 0 ? '+${(_brightness * 100).toInt()}' : '${(_brightness * 100).toInt()}'),
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFF7C3AED),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          SliderTheme(
+            data: SliderThemeData(
+              activeTrackColor: Color(0xFF7C3AED),
+              inactiveTrackColor: AppColors.cardBorder,
+              thumbColor: Colors.white,
+              overlayColor: Color(0xFF7C3AED).withOpacity(0.2),
+              trackHeight: 6,
+              thumbShape: const RoundSliderThumbShape(
+                enabledThumbRadius: 10,
+                elevation: 4,
+              ),
+            ),
+            child: Slider(
+              value: _brightness,
+              min: -0.5,
+              max: 0.5,
+              onChanged: (value) {
+                setState(() {
+                  _brightness = value;
+                });
+                HapticFeedback.selectionClick();
+              },
+            ),
+          ),
+          // Quick preset buttons
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+            children: [
+              _buildBrightnessPreset('Dark', -0.3),
+              _buildBrightnessPreset('Normal', 0.0),
+              _buildBrightnessPreset('Bright', 0.3),
+            ],
+          ),
+        ],
+      ),
+    ).animate().fadeIn(delay: 400.ms);
+  }
+
+  Widget _buildBrightnessPreset(String label, double value) {
+    final isSelected = (_brightness - value).abs() < 0.05;
+    return GestureDetector(
+      onTap: () {
+        setState(() {
+          _brightness = value;
+        });
+        HapticFeedback.selectionClick();
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected ? Color(0xFF7C3AED).withOpacity(0.2) : Colors.transparent,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? Color(0xFF7C3AED) : AppColors.cardBorder,
+          ),
+        ),
+        child: Text(
+          label,
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w500,
+            color: isSelected ? Color(0xFF7C3AED) : AppColors.textSecondary,
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildBottomActions(BuildContext context, EnhanceState state) {
     return Container(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
@@ -810,6 +935,9 @@ class _EnhanceScreenContentState extends State<_EnhanceScreenContent> {
             onTap: () {
               HapticFeedback.mediumImpact();
               if (state.isEnhanced) {
+                setState(() {
+                  _brightness = 0.0; // Reset brightness
+                });
                 context.read<EnhanceBloc>().add(const EnhanceReset());
               } else {
                 _selectImage(context);
@@ -845,7 +973,7 @@ class _EnhanceScreenContentState extends State<_EnhanceScreenContent> {
                 : () {
                     HapticFeedback.mediumImpact();
                     if (state.isEnhanced) {
-                      context.read<EnhanceBloc>().add(const EnhanceSaveRequested());
+                      context.read<EnhanceBloc>().add(EnhanceSaveRequested(brightness: _brightness));
                     } else {
                       context.read<EnhanceBloc>().add(const EnhanceRequested());
                     }
@@ -965,6 +1093,18 @@ class _EnhanceScreenContentState extends State<_EnhanceScreenContent> {
         margin: const EdgeInsets.all(16),
       ),
     );
+  }
+
+  // Create brightness adjustment matrix
+  List<double> _brightnessMatrix(double brightness) {
+    // brightness: -1.0 to 1.0, where 0 is normal
+    final double b = brightness;
+    return [
+      1, 0, 0, 0, b * 255,
+      0, 1, 0, 0, b * 255,
+      0, 0, 1, 0, b * 255,
+      0, 0, 0, 1, 0,
+    ];
   }
 }
 

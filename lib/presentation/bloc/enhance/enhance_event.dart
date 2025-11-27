@@ -55,9 +55,14 @@ class EnhanceReset extends EnhanceEvent {
   const EnhanceReset();
 }
 
-/// Save the enhanced image
+/// Save the enhanced image with brightness adjustment
 class EnhanceSaveRequested extends EnhanceEvent {
-  const EnhanceSaveRequested();
+  final double brightness;
+  
+  const EnhanceSaveRequested({this.brightness = 0.0});
+
+  @override
+  List<Object?> get props => [brightness];
 }
 
 /// Update comparison slider position
