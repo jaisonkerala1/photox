@@ -4,7 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 
 // OpenRouter configuration
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const MODEL_NAME = 'google/gemini-2.0-flash-exp:free';  // Free model that supports image generation
+const MODEL_NAME = 'google/gemini-2.0-flash-exp';  // Paid model - uses your own rate limits
 
 // Debug: Log API key status on startup
 console.log('=== AI Processing Controller Loaded ===');
