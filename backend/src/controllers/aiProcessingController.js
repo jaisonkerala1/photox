@@ -1,11 +1,18 @@
 const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
+const { OpenRouter } = require('@openrouter/sdk');
 
-// OpenRouter API configuration
+// OpenRouter configuration
 const OPENROUTER_API_KEY = process.env.OPENROUTER_API_KEY;
-const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1/chat/completions';
 const MODEL_NAME = 'google/gemini-3-pro-image-preview';
+
+// Initialize OpenRouter SDK
+let openrouter = null;
+if (OPENROUTER_API_KEY) {
+  openrouter = new OpenRouter({ apiKey: OPENROUTER_API_KEY });
+  console.log('OpenRouter SDK initialized successfully');
+}
 
 // Debug: Log API key status on startup
 console.log('=== AI Processing Controller Loaded ===');
@@ -36,7 +43,7 @@ const saveBase64Image = (base64Data, filename) => {
   return `/uploads/${filename}`;
 };
 
-// Enhance photo using OpenRouter + Gemini 3 Pro Image Preview
+// Enhance photo using OpenRouter SDK + Gemini 3 Pro Image Preview
 exports.enhance = async (req, res, next) => {
   try {
     const startTime = Date.now();
@@ -61,7 +68,7 @@ exports.enhance = async (req, res, next) => {
     const prompt = ENHANCE_PROMPTS[enhanceType] || ENHANCE_PROMPTS.auto;
 
     console.log(`[Enhance] Using prompt for ${enhanceType}`);
-    console.log('[Enhance] Calling OpenRouter with model:', MODEL_NAME);
+    console.log('[Enhance] Calling OpenRouter SDK with model:', MODEL_NAME);
 
     const result = await callOpenRouter(prompt, base64Image, mimeType);
 
@@ -69,21 +76,33 @@ exports.enhance = async (req, res, next) => {
 
     let enhancedImageData = null;
 
-    // Parse OpenRouter response
+    // Parse OpenRouter SDK response
     if (result.choices && result.choices[0] && result.choices[0].message) {
-      const content = result.choices[0].message.content;
+      const message = result.choices[0].message;
       
-      if (Array.isArray(content)) {
-        for (const part of content) {
-          if (part.type === 'image_url' && part.image_url) {
-            const dataUrl = part.image_url.url;
-            if (dataUrl.startsWith('data:')) {
-              enhancedImageData = dataUrl.split(',')[1];
+      // Check for images array
+      if (message.images && message.images.length > 0) {
+        const imageUrl = message.images[0].image_url.url;
+        if (imageUrl.startsWith('data:')) {
+          enhancedImageData = imageUrl.split(',')[1];
+        }
+      }
+      
+      // Also check content
+      const content = message.content;
+      if (!enhancedImageData && content) {
+        if (Array.isArray(content)) {
+          for (const part of content) {
+            if (part.type === 'image_url' && part.image_url) {
+              const dataUrl = part.image_url.url;
+              if (dataUrl.startsWith('data:')) {
+                enhancedImageData = dataUrl.split(',')[1];
+              }
             }
           }
+        } else if (typeof content === 'string' && content.startsWith('data:image')) {
+          enhancedImageData = content.split(',')[1];
         }
-      } else if (typeof content === 'string' && content.startsWith('data:image')) {
-        enhancedImageData = content.split(',')[1];
       }
     }
 
@@ -121,45 +140,35 @@ exports.enhance = async (req, res, next) => {
   }
 };
 
-// Helper function to call OpenRouter API
+// Helper function to call OpenRouter SDK for image enhancement
 async function callOpenRouter(prompt, imageBase64, mimeType) {
-  const response = await fetch(OPENROUTER_BASE_URL, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
-      'Content-Type': 'application/json',
-      'HTTP-Referer': 'https://photox.app',
-      'X-Title': 'PhotoX AI Enhancer',
-    },
-    body: JSON.stringify({
-      model: MODEL_NAME,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'text',
-              text: prompt,
-            },
-            {
-              type: 'image_url',
-              image_url: {
-                url: `data:${mimeType};base64,${imageBase64}`,
-              },
-            },
-          ],
-        },
-      ],
-      max_tokens: 4096,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`OpenRouter API error: ${response.status} - ${errorText}`);
+  if (!openrouter) {
+    throw new Error('OpenRouter SDK not initialized');
   }
 
-  return response.json();
+  const result = await openrouter.chat.send({
+    model: MODEL_NAME,
+    messages: [
+      {
+        role: 'user',
+        content: [
+          {
+            type: 'text',
+            text: prompt,
+          },
+          {
+            type: 'image_url',
+            image_url: {
+              url: `data:${mimeType};base64,${imageBase64}`,
+            },
+          },
+        ],
+      },
+    ],
+    modalities: ['image', 'text'],
+  });
+
+  return result;
 }
 
 // Public enhance endpoint (no auth required for testing)
@@ -174,7 +183,7 @@ exports.enhancePublic = async (req, res, next) => {
     console.log('[EnhancePublic] enhanceType:', enhanceType);
     console.log('[EnhancePublic] mimeType:', mimeType);
     console.log('[EnhancePublic] imageBase64 length:', imageBase64 ? imageBase64.length : 0);
-    console.log('[EnhancePublic] OpenRouter API Key present:', !!OPENROUTER_API_KEY);
+    console.log('[EnhancePublic] OpenRouter SDK initialized:', !!openrouter);
 
     if (!imageBase64) {
       console.log('[EnhancePublic] ERROR: No image provided');
@@ -184,8 +193,8 @@ exports.enhancePublic = async (req, res, next) => {
       });
     }
 
-    if (!OPENROUTER_API_KEY) {
-      console.log('[EnhancePublic] ERROR: OpenRouter API key not set');
+    if (!openrouter) {
+      console.log('[EnhancePublic] ERROR: OpenRouter SDK not initialized');
       return res.status(500).json({
         success: false,
         message: 'AI service not initialized. Check OPENROUTER_API_KEY.',
@@ -197,55 +206,73 @@ exports.enhancePublic = async (req, res, next) => {
     console.log('[EnhancePublic] Using prompt:', prompt.substring(0, 50) + '...');
 
     try {
-      console.log('[EnhancePublic] Calling OpenRouter with model:', MODEL_NAME);
+      console.log('[EnhancePublic] Calling OpenRouter SDK with model:', MODEL_NAME);
       
       const result = await callOpenRouter(prompt, imageBase64, mimeType);
 
       console.log('[EnhancePublic] Received response from OpenRouter');
-      console.log('[EnhancePublic] Response keys:', Object.keys(result));
+      console.log('[EnhancePublic] Result keys:', Object.keys(result));
 
       let enhancedImageData = null;
       let responseText = null;
 
-      // Parse OpenRouter response
+      // Parse OpenRouter SDK response - check for images array
       if (result.choices && result.choices[0] && result.choices[0].message) {
-        const content = result.choices[0].message.content;
-        console.log('[EnhancePublic] Content type:', typeof content);
+        const message = result.choices[0].message;
+        console.log('[EnhancePublic] Message keys:', Object.keys(message));
         
-        if (Array.isArray(content)) {
-          for (const part of content) {
-            if (part.type === 'image_url' && part.image_url) {
-              // Extract base64 from data URL
-              const dataUrl = part.image_url.url;
-              if (dataUrl.startsWith('data:')) {
-                enhancedImageData = dataUrl.split(',')[1];
-                console.log('[EnhancePublic] Found enhanced image, length:', enhancedImageData.length);
-              }
-            } else if (part.type === 'text') {
-              responseText = part.text;
-              console.log('[EnhancePublic] Found text:', responseText.substring(0, 100));
-            }
-          }
-        } else if (typeof content === 'string') {
-          // Check if it's a base64 image or text
-          if (content.startsWith('data:image')) {
-            enhancedImageData = content.split(',')[1];
-            console.log('[EnhancePublic] Found base64 image in string content');
+        // Check for images array (SDK format)
+        if (message.images && message.images.length > 0) {
+          console.log('[EnhancePublic] Found images array, count:', message.images.length);
+          const imageUrl = message.images[0].image_url.url;
+          
+          if (imageUrl.startsWith('data:')) {
+            enhancedImageData = imageUrl.split(',')[1];
+            console.log('[EnhancePublic] Extracted base64 image, length:', enhancedImageData.length);
           } else {
-            responseText = content;
-            console.log('[EnhancePublic] Text response:', content.substring(0, 200));
+            // It's a URL, we need to fetch it
+            console.log('[EnhancePublic] Image is URL:', imageUrl.substring(0, 50));
+            // For now, store the URL - you might want to fetch and convert to base64
+            enhancedImageData = imageUrl;
+          }
+        }
+        
+        // Also check content for text or inline images
+        const content = message.content;
+        if (content) {
+          console.log('[EnhancePublic] Content type:', typeof content);
+          
+          if (Array.isArray(content)) {
+            for (const part of content) {
+              if (part.type === 'image_url' && part.image_url) {
+                const dataUrl = part.image_url.url;
+                if (dataUrl.startsWith('data:')) {
+                  enhancedImageData = dataUrl.split(',')[1];
+                  console.log('[EnhancePublic] Found image in content array');
+                }
+              } else if (part.type === 'text') {
+                responseText = part.text;
+              }
+            }
+          } else if (typeof content === 'string') {
+            if (content.startsWith('data:image')) {
+              enhancedImageData = content.split(',')[1];
+            } else {
+              responseText = content;
+            }
           }
         }
       }
 
       if (!enhancedImageData) {
         console.log('[EnhancePublic] No image in response, returning original');
+        console.log('[EnhancePublic] Full result:', JSON.stringify(result, null, 2).substring(0, 1000));
         return res.json({
           success: true,
           enhancedImageBase64: imageBase64,
           processingTime: Date.now() - startTime,
           enhanceType,
-          note: responseText || 'Enhancement applied (model returned text only)',
+          note: responseText || 'Enhancement applied (no image returned)',
         });
       }
 
@@ -260,6 +287,7 @@ exports.enhancePublic = async (req, res, next) => {
       });
     } catch (aiError) {
       console.error('[EnhancePublic] AI Error:', aiError.message);
+      console.error('[EnhancePublic] AI Error stack:', aiError.stack);
       
       // Return original image as fallback
       res.json({
