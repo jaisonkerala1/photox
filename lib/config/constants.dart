@@ -95,6 +95,7 @@ class ApiEndpoints {
   
   // AI Processing
   static const String enhance = '/ai/enhance';
+  static const String enhancePublic = '/ai/enhance-public';
   static const String restore = '/ai/restore';
   static const String selfieEdit = '/ai/selfie-edit';
   static const String faceSwap = '/ai/face-swap';

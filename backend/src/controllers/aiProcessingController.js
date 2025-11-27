@@ -1,56 +1,38 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
-const Photo = require('../models/Photo');
-const EditHistory = require('../models/EditHistory');
+const { GoogleGenAI } = require('@google/genai');
 const fs = require('fs');
 const path = require('path');
+const { v4: uuidv4 } = require('uuid');
 
-// Initialize Google AI
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY);
+// Initialize Google GenAI with API key
+const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_AI_API_KEY });
 
-// Helper to convert file to generative part
-const fileToGenerativePart = (filePath, mimeType) => {
-  return {
-    inlineData: {
-      data: fs.readFileSync(filePath).toString('base64'),
-      mimeType,
-    },
-  };
+// Enhancement prompts based on mode
+const ENHANCE_PROMPTS = {
+  auto: 'Enhance this image: improve clarity, colors, contrast, and overall quality while keeping it natural and realistic. Fix any exposure issues, reduce noise, and sharpen details.',
+  portrait: 'Enhance this portrait photo: improve skin tones naturally, enhance lighting on the face, sharpen eyes and facial features, smooth skin texture subtly while keeping it realistic. Improve overall color balance and make the subject look their best.',
+  landscape: 'Enhance this landscape/nature photo: boost the vibrancy of natural colors, improve sky details, enhance the depth and clarity of the scene, adjust contrast for dramatic effect, and make the scenery look stunning and vivid.',
+  lowLight: 'Enhance this low-light/dark photo: significantly brighten the image while reducing noise and grain, recover shadow details, improve color accuracy, and make the image look like it was taken in better lighting conditions.',
+  hdr: 'Apply HDR enhancement to this image: expand the dynamic range, bring out details in both highlights and shadows, increase local contrast, boost color saturation, and create a dramatic, professional HDR look.',
 };
 
-// Helper to save result and history
-const saveResult = async (userId, photo, editType, resultUrl, processingTime, parameters = null) => {
-  // Update photo
-  photo.editedUrl = resultUrl;
-  photo.editType = editType;
-  photo.status = 'completed';
-  photo.processingTime = processingTime;
-  photo.parameters = parameters;
-  await photo.save();
-
-  // Create history entry
-  await EditHistory.create({
-    userId,
-    photoId: photo._id,
-    editType,
-    parameters,
-    originalUrl: photo.originalUrl,
-    resultUrl,
-    processingTime,
-    cost: 1,
-  });
-
-  // Deduct credits
-  const User = require('../models/User');
-  await User.findByIdAndUpdate(userId, { $inc: { creditsRemaining: -1 } });
-
-  return photo;
+// Helper to save base64 image to file
+const saveBase64Image = (base64Data, filename) => {
+  const uploadsDir = path.join(__dirname, '../../uploads');
+  if (!fs.existsSync(uploadsDir)) {
+    fs.mkdirSync(uploadsDir, { recursive: true });
+  }
+  
+  const filePath = path.join(uploadsDir, filename);
+  const buffer = Buffer.from(base64Data, 'base64');
+  fs.writeFileSync(filePath, buffer);
+  return `/uploads/${filename}`;
 };
 
-// Enhance photo
+// Enhance photo using Gemini 2.5 Flash Image
 exports.enhance = async (req, res, next) => {
   try {
     const startTime = Date.now();
-    const { intensity = 50 } = req.body;
+    const { enhanceType = 'auto' } = req.body;
 
     if (!req.file) {
       return res.status(400).json({
@@ -59,56 +41,163 @@ exports.enhance = async (req, res, next) => {
       });
     }
 
-    // Create photo record
-    const photo = await Photo.create({
-      userId: req.userId,
-      originalUrl: `/uploads/${req.file.filename}`,
-      editType: 'enhance',
-      status: 'processing',
+    console.log(`[Enhance] Starting enhancement with type: ${enhanceType}`);
+    console.log(`[Enhance] File: ${req.file.originalname}, Size: ${req.file.size} bytes`);
+
+    // Read the uploaded image and convert to base64
+    const imageBuffer = fs.readFileSync(req.file.path);
+    const base64Image = imageBuffer.toString('base64');
+    const mimeType = req.file.mimetype;
+
+    // Get the appropriate prompt
+    const prompt = ENHANCE_PROMPTS[enhanceType] || ENHANCE_PROMPTS.auto;
+
+    console.log(`[Enhance] Using prompt for ${enhanceType}: ${prompt.substring(0, 50)}...`);
+
+    // Call Gemini 2.5 Flash Image model
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: [
+        { text: prompt },
+        {
+          inlineData: {
+            mimeType: mimeType,
+            data: base64Image,
+          },
+        },
+      ],
+      config: {
+        responseModalities: ['IMAGE'],
+      },
     });
 
-    try {
-      // Use Gemini Vision for enhancement guidance
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      const imagePart = fileToGenerativePart(req.file.path, req.file.mimetype);
-      
-      const result = await model.generateContent([
-        'Analyze this image and describe how to enhance it. Focus on color correction, sharpness, noise reduction, and overall quality improvements.',
-        imagePart,
-      ]);
+    console.log('[Enhance] Received response from Gemini');
 
-      const processingTime = Date.now() - startTime;
+    // Extract the enhanced image from response
+    let enhancedImageData = null;
+    let responseText = null;
 
-      // For now, return the original as we need actual image processing
-      // In production, integrate with a proper image processing service
-      const resultUrl = photo.originalUrl;
-
-      const updatedPhoto = await saveResult(
-        req.userId,
-        photo,
-        'enhance',
-        resultUrl,
-        processingTime,
-        { intensity }
-      );
-
-      res.json({
-        success: true,
-        id: updatedPhoto._id,
-        originalUrl: updatedPhoto.originalUrl,
-        resultUrl: updatedPhoto.editedUrl,
-        processingTime,
-        creditsCost: 1,
-        createdAt: updatedPhoto.createdAt,
-      });
-    } catch (aiError) {
-      photo.status = 'failed';
-      photo.errorMessage = aiError.message;
-      await photo.save();
-      throw aiError;
+    if (response.candidates && response.candidates[0] && response.candidates[0].content) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          enhancedImageData = part.inlineData.data;
+          console.log('[Enhance] Found enhanced image in response');
+        } else if (part.text) {
+          responseText = part.text;
+          console.log('[Enhance] Response text:', part.text);
+        }
+      }
     }
+
+    if (!enhancedImageData) {
+      console.error('[Enhance] No image data in response');
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to generate enhanced image',
+        details: responseText || 'No image returned from AI',
+      });
+    }
+
+    // Save the enhanced image
+    const enhancedFilename = `enhanced_${uuidv4()}.png`;
+    const enhancedUrl = saveBase64Image(enhancedImageData, enhancedFilename);
+
+    const processingTime = Date.now() - startTime;
+    console.log(`[Enhance] Completed in ${processingTime}ms`);
+
+    res.json({
+      success: true,
+      originalUrl: `/uploads/${req.file.filename}`,
+      resultUrl: enhancedUrl,
+      enhancedImageBase64: enhancedImageData,
+      processingTime,
+      enhanceType,
+    });
   } catch (error) {
+    console.error('[Enhance] Error:', error);
     next(error);
+  }
+};
+
+// Public enhance endpoint (no auth required for testing)
+exports.enhancePublic = async (req, res, next) => {
+  try {
+    const startTime = Date.now();
+    const { enhanceType = 'auto', imageBase64, mimeType = 'image/jpeg' } = req.body;
+
+    if (!imageBase64) {
+      return res.status(400).json({
+        success: false,
+        message: 'No image provided. Send imageBase64 in request body.',
+      });
+    }
+
+    console.log(`[EnhancePublic] Starting enhancement with type: ${enhanceType}`);
+
+    // Get the appropriate prompt
+    const prompt = ENHANCE_PROMPTS[enhanceType] || ENHANCE_PROMPTS.auto;
+
+    console.log(`[EnhancePublic] Using prompt for ${enhanceType}`);
+
+    // Call Gemini 2.5 Flash Image model
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: [
+        { text: prompt },
+        {
+          inlineData: {
+            mimeType: mimeType,
+            data: imageBase64,
+          },
+        },
+      ],
+      config: {
+        responseModalities: ['IMAGE'],
+      },
+    });
+
+    console.log('[EnhancePublic] Received response from Gemini');
+
+    // Extract the enhanced image from response
+    let enhancedImageData = null;
+    let responseText = null;
+
+    if (response.candidates && response.candidates[0] && response.candidates[0].content) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          enhancedImageData = part.inlineData.data;
+          console.log('[EnhancePublic] Found enhanced image in response');
+        } else if (part.text) {
+          responseText = part.text;
+        }
+      }
+    }
+
+    if (!enhancedImageData) {
+      console.error('[EnhancePublic] No image data in response');
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to generate enhanced image',
+        details: responseText || 'No image returned from AI',
+      });
+    }
+
+    const processingTime = Date.now() - startTime;
+    console.log(`[EnhancePublic] Completed in ${processingTime}ms`);
+
+    res.json({
+      success: true,
+      enhancedImageBase64: enhancedImageData,
+      processingTime,
+      enhanceType,
+    });
+  } catch (error) {
+    console.error('[EnhancePublic] Error:', error.message);
+    res.status(500).json({
+      success: false,
+      message: 'Enhancement failed',
+      error: error.message,
+    });
   }
 };
 
@@ -116,7 +205,6 @@ exports.enhance = async (req, res, next) => {
 exports.restore = async (req, res, next) => {
   try {
     const startTime = Date.now();
-    const { colorize = false, removeDamage = true } = req.body;
 
     if (!req.file) {
       return res.status(400).json({
@@ -125,50 +213,59 @@ exports.restore = async (req, res, next) => {
       });
     }
 
-    const photo = await Photo.create({
-      userId: req.userId,
-      originalUrl: `/uploads/${req.file.filename}`,
-      editType: 'restore',
-      status: 'processing',
+    const imageBuffer = fs.readFileSync(req.file.path);
+    const base64Image = imageBuffer.toString('base64');
+    const mimeType = req.file.mimetype;
+
+    const prompt = 'Restore this old/damaged photo: repair any scratches, tears, fading, or discoloration. Remove dust spots and damage marks. Enhance clarity and bring back the original quality of the photo while preserving its authentic vintage character.';
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: [
+        { text: prompt },
+        {
+          inlineData: {
+            mimeType: mimeType,
+            data: base64Image,
+          },
+        },
+      ],
+      config: {
+        responseModalities: ['IMAGE'],
+      },
     });
 
-    try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      const imagePart = fileToGenerativePart(req.file.path, req.file.mimetype);
-      
-      await model.generateContent([
-        'Analyze this old photo and describe the damage that needs to be repaired: scratches, tears, fading, discoloration, etc.',
-        imagePart,
-      ]);
+    let enhancedImageData = null;
 
-      const processingTime = Date.now() - startTime;
-      const resultUrl = photo.originalUrl;
-
-      const updatedPhoto = await saveResult(
-        req.userId,
-        photo,
-        'restore',
-        resultUrl,
-        processingTime,
-        { colorize, removeDamage }
-      );
-
-      res.json({
-        success: true,
-        id: updatedPhoto._id,
-        originalUrl: updatedPhoto.originalUrl,
-        resultUrl: updatedPhoto.editedUrl,
-        processingTime,
-        creditsCost: 1,
-        createdAt: updatedPhoto.createdAt,
-      });
-    } catch (aiError) {
-      photo.status = 'failed';
-      photo.errorMessage = aiError.message;
-      await photo.save();
-      throw aiError;
+    if (response.candidates && response.candidates[0] && response.candidates[0].content) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          enhancedImageData = part.inlineData.data;
+        }
+      }
     }
+
+    if (!enhancedImageData) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to restore image',
+      });
+    }
+
+    const restoredFilename = `restored_${uuidv4()}.png`;
+    const restoredUrl = saveBase64Image(enhancedImageData, restoredFilename);
+
+    const processingTime = Date.now() - startTime;
+
+    res.json({
+      success: true,
+      originalUrl: `/uploads/${req.file.filename}`,
+      resultUrl: restoredUrl,
+      enhancedImageBase64: enhancedImageData,
+      processingTime,
+    });
   } catch (error) {
+    console.error('[Restore] Error:', error);
     next(error);
   }
 };
@@ -176,60 +273,10 @@ exports.restore = async (req, res, next) => {
 // Face swap
 exports.faceSwap = async (req, res, next) => {
   try {
-    const startTime = Date.now();
-
-    if (!req.files || req.files.length < 2) {
-      return res.status(400).json({
-        success: false,
-        message: 'Two images are required for face swap',
-      });
-    }
-
-    const photo = await Photo.create({
-      userId: req.userId,
-      originalUrl: `/uploads/${req.files[0].filename}`,
-      editType: 'faceSwap',
-      status: 'processing',
+    res.status(501).json({
+      success: false,
+      message: 'Face swap feature coming soon',
     });
-
-    try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      
-      const sourcePart = fileToGenerativePart(req.files[0].path, req.files[0].mimetype);
-      const targetPart = fileToGenerativePart(req.files[1].path, req.files[1].mimetype);
-      
-      await model.generateContent([
-        'Analyze these two faces and describe their key features for a face swap operation.',
-        sourcePart,
-        targetPart,
-      ]);
-
-      const processingTime = Date.now() - startTime;
-      const resultUrl = photo.originalUrl;
-
-      const updatedPhoto = await saveResult(
-        req.userId,
-        photo,
-        'faceSwap',
-        resultUrl,
-        processingTime
-      );
-
-      res.json({
-        success: true,
-        id: updatedPhoto._id,
-        originalUrl: updatedPhoto.originalUrl,
-        resultUrl: updatedPhoto.editedUrl,
-        processingTime,
-        creditsCost: 1,
-        createdAt: updatedPhoto.createdAt,
-      });
-    } catch (aiError) {
-      photo.status = 'failed';
-      photo.errorMessage = aiError.message;
-      await photo.save();
-      throw aiError;
-    }
   } catch (error) {
     next(error);
   }
@@ -248,50 +295,60 @@ exports.aging = async (req, res, next) => {
       });
     }
 
-    const photo = await Photo.create({
-      userId: req.userId,
-      originalUrl: `/uploads/${req.file.filename}`,
-      editType: 'aging',
-      status: 'processing',
+    const imageBuffer = fs.readFileSync(req.file.path);
+    const base64Image = imageBuffer.toString('base64');
+    const mimeType = req.file.mimetype;
+
+    const prompt = `Transform this person's face to show how they would look at age ${targetAge}. Add realistic age-appropriate features like wrinkles, skin texture changes, and natural aging effects while maintaining their core facial features and identity.`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: [
+        { text: prompt },
+        {
+          inlineData: {
+            mimeType: mimeType,
+            data: base64Image,
+          },
+        },
+      ],
+      config: {
+        responseModalities: ['IMAGE'],
+      },
     });
 
-    try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      const imagePart = fileToGenerativePart(req.file.path, req.file.mimetype);
-      
-      await model.generateContent([
-        `Analyze this face and describe how it would look at age ${targetAge}. Consider wrinkles, skin texture, hair color changes, and facial structure changes.`,
-        imagePart,
-      ]);
+    let enhancedImageData = null;
 
-      const processingTime = Date.now() - startTime;
-      const resultUrl = photo.originalUrl;
-
-      const updatedPhoto = await saveResult(
-        req.userId,
-        photo,
-        'aging',
-        resultUrl,
-        processingTime,
-        { targetAge }
-      );
-
-      res.json({
-        success: true,
-        id: updatedPhoto._id,
-        originalUrl: updatedPhoto.originalUrl,
-        resultUrl: updatedPhoto.editedUrl,
-        processingTime,
-        creditsCost: 1,
-        createdAt: updatedPhoto.createdAt,
-      });
-    } catch (aiError) {
-      photo.status = 'failed';
-      photo.errorMessage = aiError.message;
-      await photo.save();
-      throw aiError;
+    if (response.candidates && response.candidates[0] && response.candidates[0].content) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          enhancedImageData = part.inlineData.data;
+        }
+      }
     }
+
+    if (!enhancedImageData) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to generate aged image',
+      });
+    }
+
+    const agedFilename = `aged_${uuidv4()}.png`;
+    const agedUrl = saveBase64Image(enhancedImageData, agedFilename);
+
+    const processingTime = Date.now() - startTime;
+
+    res.json({
+      success: true,
+      originalUrl: `/uploads/${req.file.filename}`,
+      resultUrl: agedUrl,
+      enhancedImageBase64: enhancedImageData,
+      processingTime,
+      targetAge,
+    });
   } catch (error) {
+    console.error('[Aging] Error:', error);
     next(error);
   }
 };
@@ -309,50 +366,68 @@ exports.styleTransfer = async (req, res, next) => {
       });
     }
 
-    const photo = await Photo.create({
-      userId: req.userId,
-      originalUrl: `/uploads/${req.file.filename}`,
-      editType: 'styleTransfer',
-      status: 'processing',
+    const imageBuffer = fs.readFileSync(req.file.path);
+    const base64Image = imageBuffer.toString('base64');
+    const mimeType = req.file.mimetype;
+
+    const stylePrompts = {
+      anime: 'Transform this image into anime/manga art style with clean lines, vibrant colors, and characteristic anime aesthetics.',
+      oil_painting: 'Transform this image into a classical oil painting style with visible brushstrokes, rich colors, and artistic texture.',
+      watercolor: 'Transform this image into a beautiful watercolor painting with soft edges, flowing colors, and artistic water effects.',
+      sketch: 'Transform this image into a detailed pencil sketch with fine lines, shading, and artistic drawing style.',
+      pop_art: 'Transform this image into bold pop art style with bright colors, halftone dots, and comic-book aesthetics.',
+    };
+
+    const prompt = stylePrompts[style] || stylePrompts.anime;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: [
+        { text: prompt },
+        {
+          inlineData: {
+            mimeType: mimeType,
+            data: base64Image,
+          },
+        },
+      ],
+      config: {
+        responseModalities: ['IMAGE'],
+      },
     });
 
-    try {
-      const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
-      const imagePart = fileToGenerativePart(req.file.path, req.file.mimetype);
-      
-      await model.generateContent([
-        `Describe how this image would look if transformed into ${style} style.`,
-        imagePart,
-      ]);
+    let enhancedImageData = null;
 
-      const processingTime = Date.now() - startTime;
-      const resultUrl = photo.originalUrl;
-
-      const updatedPhoto = await saveResult(
-        req.userId,
-        photo,
-        'styleTransfer',
-        resultUrl,
-        processingTime,
-        { style }
-      );
-
-      res.json({
-        success: true,
-        id: updatedPhoto._id,
-        originalUrl: updatedPhoto.originalUrl,
-        resultUrl: updatedPhoto.editedUrl,
-        processingTime,
-        creditsCost: 1,
-        createdAt: updatedPhoto.createdAt,
-      });
-    } catch (aiError) {
-      photo.status = 'failed';
-      photo.errorMessage = aiError.message;
-      await photo.save();
-      throw aiError;
+    if (response.candidates && response.candidates[0] && response.candidates[0].content) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          enhancedImageData = part.inlineData.data;
+        }
+      }
     }
+
+    if (!enhancedImageData) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to apply style transfer',
+      });
+    }
+
+    const styledFilename = `styled_${uuidv4()}.png`;
+    const styledUrl = saveBase64Image(enhancedImageData, styledFilename);
+
+    const processingTime = Date.now() - startTime;
+
+    res.json({
+      success: true,
+      originalUrl: `/uploads/${req.file.filename}`,
+      resultUrl: styledUrl,
+      enhancedImageBase64: enhancedImageData,
+      processingTime,
+      style,
+    });
   } catch (error) {
+    console.error('[StyleTransfer] Error:', error);
     next(error);
   }
 };
@@ -360,43 +435,9 @@ exports.styleTransfer = async (req, res, next) => {
 // Apply filter
 exports.applyFilter = async (req, res, next) => {
   try {
-    const startTime = Date.now();
-    const { filter = 'instant_snap' } = req.body;
-
-    if (!req.file) {
-      return res.status(400).json({
-        success: false,
-        message: 'No image provided',
-      });
-    }
-
-    const photo = await Photo.create({
-      userId: req.userId,
-      originalUrl: `/uploads/${req.file.filename}`,
-      editType: 'filter',
-      status: 'processing',
-    });
-
-    const processingTime = Date.now() - startTime;
-    const resultUrl = photo.originalUrl;
-
-    const updatedPhoto = await saveResult(
-      req.userId,
-      photo,
-      'filter',
-      resultUrl,
-      processingTime,
-      { filter }
-    );
-
-    res.json({
-      success: true,
-      id: updatedPhoto._id,
-      originalUrl: updatedPhoto.originalUrl,
-      resultUrl: updatedPhoto.editedUrl,
-      processingTime,
-      creditsCost: 1,
-      createdAt: updatedPhoto.createdAt,
+    res.status(501).json({
+      success: false,
+      message: 'Filter feature coming soon',
     });
   } catch (error) {
     next(error);
@@ -407,7 +448,6 @@ exports.applyFilter = async (req, res, next) => {
 exports.upscale = async (req, res, next) => {
   try {
     const startTime = Date.now();
-    const { factor = 2 } = req.body;
 
     if (!req.file) {
       return res.status(400).json({
@@ -416,37 +456,59 @@ exports.upscale = async (req, res, next) => {
       });
     }
 
-    const photo = await Photo.create({
-      userId: req.userId,
-      originalUrl: `/uploads/${req.file.filename}`,
-      editType: 'upscale',
-      status: 'processing',
+    const imageBuffer = fs.readFileSync(req.file.path);
+    const base64Image = imageBuffer.toString('base64');
+    const mimeType = req.file.mimetype;
+
+    const prompt = 'Upscale and enhance this image to higher resolution. Improve sharpness, add fine details, reduce any artifacts or blur, and make the image look crisp and high-definition.';
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash-image',
+      contents: [
+        { text: prompt },
+        {
+          inlineData: {
+            mimeType: mimeType,
+            data: base64Image,
+          },
+        },
+      ],
+      config: {
+        responseModalities: ['IMAGE'],
+      },
     });
 
-    const processingTime = Date.now() - startTime;
-    const resultUrl = photo.originalUrl;
+    let enhancedImageData = null;
 
-    const updatedPhoto = await saveResult(
-      req.userId,
-      photo,
-      'upscale',
-      resultUrl,
-      processingTime,
-      { factor }
-    );
+    if (response.candidates && response.candidates[0] && response.candidates[0].content) {
+      for (const part of response.candidates[0].content.parts) {
+        if (part.inlineData) {
+          enhancedImageData = part.inlineData.data;
+        }
+      }
+    }
+
+    if (!enhancedImageData) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to upscale image',
+      });
+    }
+
+    const upscaledFilename = `upscaled_${uuidv4()}.png`;
+    const upscaledUrl = saveBase64Image(enhancedImageData, upscaledFilename);
+
+    const processingTime = Date.now() - startTime;
 
     res.json({
       success: true,
-      id: updatedPhoto._id,
-      originalUrl: updatedPhoto.originalUrl,
-      resultUrl: updatedPhoto.editedUrl,
+      originalUrl: `/uploads/${req.file.filename}`,
+      resultUrl: upscaledUrl,
+      enhancedImageBase64: enhancedImageData,
       processingTime,
-      creditsCost: 1,
-      createdAt: updatedPhoto.createdAt,
     });
   } catch (error) {
+    console.error('[Upscale] Error:', error);
     next(error);
   }
 };
-
-

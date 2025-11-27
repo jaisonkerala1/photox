@@ -5,7 +5,13 @@ const aiController = require('../controllers/aiProcessingController');
 const { auth, requireCredits, requirePro } = require('../middleware/auth');
 const { upload } = require('../middleware/upload');
 
-// Enhance photo
+// Public enhance endpoint (no auth - for testing/demo)
+router.post(
+  '/enhance-public',
+  aiController.enhancePublic
+);
+
+// Enhance photo (with auth)
 router.post(
   '/enhance',
   auth,
@@ -71,5 +77,8 @@ router.post(
 );
 
 module.exports = router;
+
+
+
 
 

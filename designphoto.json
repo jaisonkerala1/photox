@@ -1,0 +1,331 @@
+{
+  "designSystem": {
+    "appMetadata": {
+      "type": "AI Photo Editing Mobile App",
+      "platform": "Mobile (Android/iOS)",
+      "orientation": "Portrait"
+    },
+    "colorPalette": {
+      "primary": "#7C3AED",
+      "primaryVariant": "#6D28D9",
+      "background": "#FFFFFF",
+      "surface": "#F5F5F7",
+      "cardBackground": "#F0F0F2",
+      "text": {
+        "primary": "#000000",
+        "secondary": "#6B7280",
+        "accent": "#7C3AED"
+      },
+      "ctaButton": "#7C3AED",
+      "statusBar": "Light content with dark icons"
+    },
+    "typography": {
+      "headerLarge": {
+        "size": "32px",
+        "weight": "700",
+        "color": "#000000",
+        "usage": "Screen titles (e.g., 'Home')"
+      },
+      "sectionHeader": {
+        "size": "20px",
+        "weight": "600",
+        "color": "#000000",
+        "usage": "Section titles (e.g., 'Trending', 'Xmas')"
+      },
+      "cardLabel": {
+        "size": "14px",
+        "weight": "500",
+        "color": "#6B7280",
+        "usage": "Card titles and labels"
+      },
+      "buttonText": {
+        "size": "16px",
+        "weight": "600",
+        "color": "#FFFFFF",
+        "usage": "Primary action buttons"
+      },
+      "linkText": {
+        "size": "16px",
+        "weight": "500",
+        "color": "#7C3AED",
+        "usage": "'See All' links"
+      }
+    },
+    "spacing": {
+      "screenPadding": "16px",
+      "sectionGap": "24px",
+      "cardGap": "12px",
+      "internalPadding": "16px",
+      "headerMarginBottom": "20px"
+    },
+    "components": {
+      "topBar": {
+        "height": "60px",
+        "layout": "flex-horizontal",
+        "elements": [
+          {
+            "type": "icon",
+            "position": "left",
+            "icon": "settings-gear",
+            "size": "24px",
+            "color": "#000000"
+          },
+          {
+            "type": "text",
+            "position": "center-left",
+            "text": "Screen Title",
+            "style": "headerLarge"
+          },
+          {
+            "type": "button",
+            "position": "right",
+            "style": "pill",
+            "background": "linear-gradient(135deg, #7C3AED, #A855F7)",
+            "padding": "8px 16px",
+            "borderRadius": "20px",
+            "icon": "crown",
+            "text": "PRO"
+          }
+        ],
+        "background": "#FFFFFF",
+        "elevation": "none"
+      },
+      "featureCardGrid": {
+        "layout": "horizontal-scroll",
+        "cardStyle": {
+          "width": "160px",
+          "height": "140px",
+          "borderRadius": "16px",
+          "background": "#F0F0F2",
+          "padding": "16px",
+          "display": "flex-vertical",
+          "justifyContent": "center",
+          "alignItems": "center"
+        },
+        "elements": [
+          {
+            "type": "icon",
+            "size": "48px",
+            "color": "#000000",
+            "marginBottom": "12px"
+          },
+          {
+            "type": "label",
+            "style": "cardLabel",
+            "textAlign": "center"
+          }
+        ],
+        "scrollBehavior": "horizontal",
+        "showScrollbar": false
+      },
+      "sectionHeader": {
+        "layout": "flex-horizontal",
+        "justifyContent": "space-between",
+        "alignItems": "center",
+        "marginBottom": "16px",
+        "elements": [
+          {
+            "type": "text",
+            "style": "sectionHeader"
+          },
+          {
+            "type": "link",
+            "text": "See All",
+            "style": "linkText",
+            "icon": "chevron-right",
+            "iconPosition": "right"
+          }
+        ]
+      },
+      "imageCard": {
+        "width": "180px",
+        "aspectRatio": "3:4",
+        "borderRadius": "16px",
+        "overflow": "hidden",
+        "position": "relative",
+        "elements": [
+          {
+            "type": "image",
+            "fit": "cover",
+            "width": "100%",
+            "height": "100%"
+          },
+          {
+            "type": "overlay",
+            "position": "bottom",
+            "background": "linear-gradient(transparent, rgba(0,0,0,0.3))",
+            "height": "40%"
+          },
+          {
+            "type": "label",
+            "position": "bottom-center",
+            "padding": "12px",
+            "color": "#FFFFFF",
+            "style": "cardLabel",
+            "textShadow": "0 1px 3px rgba(0,0,0,0.3)"
+          }
+        ],
+        "shadow": "0 2px 8px rgba(0,0,0,0.08)"
+      },
+      "horizontalScrollSection": {
+        "layout": "horizontal-scroll",
+        "gap": "12px",
+        "paddingHorizontal": "16px",
+        "showScrollbar": false,
+        "snapToCards": true
+      },
+      "bottomNavigation": {
+        "height": "70px",
+        "background": "#FFFFFF",
+        "borderTop": "1px solid #E5E7EB",
+        "layout": "flex-horizontal",
+        "justifyContent": "space-around",
+        "elements": [
+          {
+            "type": "navItem",
+            "icon": "home",
+            "label": "Home",
+            "activeColor": "#7C3AED",
+            "inactiveColor": "#9CA3AF",
+            "activeIndicator": "background-pill"
+          },
+          {
+            "type": "navItem",
+            "icon": "tools",
+            "label": "AI Tools",
+            "activeColor": "#7C3AED",
+            "inactiveColor": "#9CA3AF"
+          },
+          {
+            "type": "navItem",
+            "icon": "user",
+            "label": "Mine",
+            "activeColor": "#7C3AED",
+            "inactiveColor": "#9CA3AF"
+          }
+        ],
+        "activeStyle": {
+          "background": "#F3F4F6",
+          "borderRadius": "12px",
+          "padding": "8px 16px"
+        }
+      },
+      "adBanner": {
+        "height": "50px",
+        "background": "#FFFFFF",
+        "border": "1px solid #E5E7EB",
+        "borderRadius": "8px",
+        "display": "flex-horizontal",
+        "alignItems": "center",
+        "justifyContent": "center",
+        "margin": "16px",
+        "elements": [
+          {
+            "type": "badge",
+            "text": "AD",
+            "background": "#E5E7EB",
+            "color": "#6B7280",
+            "borderRadius": "4px",
+            "padding": "4px 8px"
+          },
+          {
+            "type": "text",
+            "text": "loading...",
+            "color": "#9CA3AF"
+          }
+        ]
+      }
+    },
+    "layoutStructure": {
+      "screen": {
+        "background": "#FFFFFF",
+        "sections": [
+          {
+            "type": "topBar",
+            "fixed": true
+          },
+          {
+            "type": "scrollableContent",
+            "sections": [
+              {
+                "name": "featureCards",
+                "component": "featureCardGrid",
+                "marginTop": "16px"
+              },
+              {
+                "name": "section1",
+                "components": [
+                  "sectionHeader",
+                  "horizontalScrollSection"
+                ],
+                "marginTop": "24px"
+              },
+              {
+                "name": "section2",
+                "components": [
+                  "sectionHeader",
+                  "horizontalScrollSection"
+                ],
+                "marginTop": "24px"
+              },
+              {
+                "name": "section3",
+                "components": [
+                  "sectionHeader",
+                  "horizontalScrollSection"
+                ],
+                "marginTop": "24px"
+              }
+            ]
+          },
+          {
+            "type": "adBanner",
+            "position": "bottom-fixed"
+          },
+          {
+            "type": "bottomNavigation",
+            "fixed": true
+          }
+        ]
+      }
+    },
+    "visualStyle": {
+      "borderRadius": {
+        "small": "8px",
+        "medium": "12px",
+        "large": "16px",
+        "pill": "20px"
+      },
+      "shadows": {
+        "card": "0 2px 8px rgba(0,0,0,0.08)",
+        "elevated": "0 4px 12px rgba(0,0,0,0.12)",
+        "none": "none"
+      },
+      "animations": {
+        "cardHover": "scale(1.02)",
+        "transition": "all 0.2s ease-in-out"
+      },
+      "imageStyle": {
+        "fit": "cover",
+        "loading": "lazy",
+        "overlay": "gradient-bottom"
+      }
+    },
+    "designPrinciples": {
+      "overall": "Clean, modern, content-focused design with emphasis on visual imagery",
+      "navigation": "Bottom tab navigation with clear active states",
+      "scrolling": "Horizontal scrolling galleries for browsing content",
+      "hierarchy": "Clear visual hierarchy with bold headers and organized sections",
+      "whitespace": "Generous use of whitespace between sections",
+      "accessibility": "High contrast text, clear touch targets (minimum 44px)",
+      "branding": "Purple accent color for premium features and active states"
+    },
+    "interactionPatterns": {
+      "cardTap": "Navigate to detail view or apply effect",
+      "seeAllLink": "Navigate to full category view",
+      "horizontalScroll": "Swipe to browse more items",
+      "proButton": "Navigate to subscription/upgrade flow",
+      "bottomNav": "Switch between main sections of app"
+    }
+  }
+}

@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.photox.photox"
-    compileSdkVersion 34
+    compileSdk = 34
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -20,8 +20,8 @@ android {
 
     defaultConfig {
         applicationId = "com.photox.photox"
-        minSdkVersion 21
-        targetSdkVersion 33
+        minSdk = 21
+        targetSdk = 34
         versionCode = flutter.versionCode
         versionName = flutter.versionName
         multiDexEnabled = true

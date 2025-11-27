@@ -227,3 +227,6 @@ class PhotoEditorBloc extends Bloc<PhotoEditorEvent, PhotoEditorState> {
 }
 
 
+
+
+

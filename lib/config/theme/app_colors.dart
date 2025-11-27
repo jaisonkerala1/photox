@@ -19,14 +19,14 @@ class AppColors {
   static const Color secondaryDark = Color(0xFF5A189A);
   
   // Background Colors - Rich Dark Theme
-  static const Color background = Color(0xFF0A0A0F);
-  static const Color surface = Color(0xFF14141B);
-  static const Color surfaceLight = Color(0xFF1E1E28);
-  static const Color surfaceVariant = Color(0xFF2A2A36);
+  static const Color background = Color(0xFF191B1A);
+  static const Color surface = Color(0xFF1F2221);
+  static const Color surfaceLight = Color(0xFF262928);
+  static const Color surfaceVariant = Color(0xFF2F3231);
   
   // Card & Container Colors
-  static const Color cardBackground = Color(0xFF1A1A24);
-  static const Color cardBorder = Color(0xFF2E2E3A);
+  static const Color cardBackground = Color(0xFF1F2221);
+  static const Color cardBorder = Color(0xFF2F3231);
   
   // Text Colors
   static const Color textPrimary = Color(0xFFFFFFFF);
@@ -66,8 +66,8 @@ class AppColors {
   ];
   
   static const List<Color> darkGradient = [
-    Color(0xFF0A0A0F),
-    Color(0xFF14141B),
+    Color(0xFF191B1A),
+    Color(0xFF1F2221),
   ];
   
   // Feature Card Colors
@@ -84,8 +84,10 @@ class AppColors {
   static const Color overlayDark = Color(0xCC000000);
   
   // Shimmer Colors
-  static const Color shimmerBase = Color(0xFF1E1E28);
-  static const Color shimmerHighlight = Color(0xFF2E2E3A);
+  static const Color shimmerBase = Color(0xFF1F2221);
+  static const Color shimmerHighlight = Color(0xFF2F3231);
 }
+
+
 
 

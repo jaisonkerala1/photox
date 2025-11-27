@@ -98,3 +98,6 @@ userSchema.methods.useCredits = function(amount = 1) {
 module.exports = mongoose.model('User', userSchema);
 
 
+
+
+

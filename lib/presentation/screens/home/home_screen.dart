@@ -3,18 +3,17 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../../config/routes/app_routes.dart';
 import '../../../config/theme/app_colors.dart';
 import '../../../core/utils/image_picker_util.dart';
 import '../../bloc/auth/auth_bloc.dart';
-import '../../bloc/auth/auth_event.dart';
 import '../../bloc/auth/auth_state.dart';
 import '../../bloc/home/home_bloc.dart';
 import '../../bloc/home/home_event.dart';
 import '../ai_tools/ai_tools_screen.dart';
-import '../../widgets/feature_card.dart';
-import '../../widgets/pro_badge.dart';
+import 'mine_screen.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -64,6 +63,12 @@ class _HomeScreenState extends State<HomeScreen> {
           arguments: {'imagePath': image.path},
         );
         break;
+      case 'upscale':
+        Navigator.of(context).pushNamed(
+          AppRoutes.enhance,
+          arguments: {'imagePath': image.path},
+        );
+        break;
       default:
         Navigator.of(context).pushNamed(
           AppRoutes.editor,
@@ -73,6 +78,13 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _pickImageForFeature(String editType) {
+    // For enhance, go directly to the screen with demo
+    if (editType == 'enhance') {
+      Navigator.of(context).pushNamed(AppRoutes.enhance);
+      return;
+    }
+    
+    // For other features, show image picker first
     ImagePickerUtil.showImageSourceDialog(
       context,
       onImageSelected: (file) => _onImageSelected(file, editType),
@@ -82,24 +94,15 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: AppColors.darkGradient,
-          ),
-        ),
-        child: SafeArea(
-          child: IndexedStack(
-            index: _currentIndex,
-            children: [
-              _buildHomeContent(),
-              _buildToolsContent(),
-              _buildGalleryContent(),
-              _buildProfileContent(),
-            ],
-          ),
+      backgroundColor: AppColors.background,
+      body: SafeArea(
+        child: IndexedStack(
+          index: _currentIndex,
+          children: [
+            _buildHomeContent(),
+            const AIToolsScreen(),
+            const MineScreen(),
+          ],
         ),
       ),
       bottomNavigationBar: _buildBottomNav(),
@@ -109,420 +112,257 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget _buildHomeContent() {
     return CustomScrollView(
       slivers: [
-        // App bar
+        // Top Bar
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.all(20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'PhotoX',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 4),
-                    BlocBuilder<AuthBloc, AuthState>(
-                      builder: (context, state) {
-                        return Text(
-                          'Hello, ${state.user?.name.split(' ').first ?? 'Creator'}!',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.textSecondary,
-                          ),
-                        );
-                      },
-                    ),
-                  ],
-                ),
-                Row(
-                  children: [
-                    BlocBuilder<AuthBloc, AuthState>(
-                      builder: (context, state) {
-                        if (state.isPro) {
-                          return const ProBadge();
-                        }
-                        return GestureDetector(
-                          onTap: () => Navigator.of(context).pushNamed(AppRoutes.subscription),
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              gradient: const LinearGradient(colors: AppColors.proGradient),
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: Row(
-                              children: [
-                                const Icon(Icons.star_rounded, size: 16, color: Colors.white),
-                                const SizedBox(width: 4),
-                                Text(
-                                  'PRO',
-                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                    color: Colors.white,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                    ),
-                    const SizedBox(width: 12),
-                    IconButton(
-                      onPressed: () {},
-                      icon: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: AppColors.surfaceVariant,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(Icons.notifications_outlined, size: 24),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ).animate().fadeIn().slideY(begin: -0.1),
+          child: _buildTopBar(),
         ),
 
-        // Credits remaining
+        const SliverToBoxAdapter(child: SizedBox(height: 20)),
+
+        // Feature Cards Row - Quick Actions
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: BlocBuilder<AuthBloc, AuthState>(
-              builder: (context, state) {
-                return Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        AppColors.primary.withOpacity(0.15),
-                        AppColors.accent.withOpacity(0.1),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(16),
-                    border: Border.all(color: AppColors.primary.withOpacity(0.3)),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(10),
-                        decoration: BoxDecoration(
-                          color: AppColors.primary.withOpacity(0.2),
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: const Icon(
-                          Icons.bolt_rounded,
-                          color: AppColors.primary,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'AI Credits',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: AppColors.textSecondary,
-                              ),
-                            ),
-                            Text(
-                              '${state.creditsRemaining} remaining today',
-                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      if (!state.isPro)
-                        TextButton(
-                          onPressed: () => Navigator.of(context).pushNamed(AppRoutes.subscription),
-                          child: const Text('Get More'),
-                        ),
-                    ],
-                  ),
-                );
-              },
-            ),
-          ).animate().fadeIn(delay: 100.ms).slideY(begin: 0.1),
+          child: _buildFeatureCardsRow(),
+        ),
+
+        const SliverToBoxAdapter(child: SizedBox(height: 28)),
+
+        // Trending Section
+        SliverToBoxAdapter(
+          child: _buildSection(
+            title: 'Trending',
+            items: [
+              _ImageCardData('Instant Snap', 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=600&fit=crop'),
+              _ImageCardData('Figurine', 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=600&fit=crop'),
+              _ImageCardData('Ghostface', 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=400&h=600&fit=crop'),
+              _ImageCardData('Giant', 'https://images.unsplash.com/photo-1517841905240-472988babdf9?w=400&h=600&fit=crop'),
+            ],
+          ),
         ),
 
         const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
-        // Quick actions
+        // Xmas Section
         SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Text(
-              'Quick Actions',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+          child: _buildSection(
+            title: 'Xmas🎄',
+            items: [
+              _ImageCardData('Cozy Vibes', 'https://images.unsplash.com/photo-1543589077-47d81606c1bf?w=400&h=600&fit=crop'),
+              _ImageCardData('Green Trouble', 'https://images.unsplash.com/photo-1482330454287-3cf7e3a7b585?w=400&h=600&fit=crop'),
+              _ImageCardData('Snow Globe❄️', 'https://images.unsplash.com/photo-1512474932049-9a2c01e0b389?w=400&h=600&fit=crop'),
+              _ImageCardData('Santa', 'https://images.unsplash.com/photo-1576267423048-15c0040fec78?w=400&h=600&fit=crop'),
+            ],
           ),
         ),
 
-        const SliverToBoxAdapter(child: SizedBox(height: 16)),
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
 
+        // For You Section
         SliverToBoxAdapter(
-          child: SizedBox(
-            height: 100,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              children: [
-                _QuickActionButton(
-                  icon: Icons.auto_awesome_rounded,
-                  label: 'Enhance',
-                  gradient: AppColors.primaryGradient,
-                  onTap: () => _pickImageForFeature('enhance'),
-                ),
-                _QuickActionButton(
-                  icon: Icons.restore_rounded,
-                  label: 'Restore',
-                  gradient: AppColors.accentGradient,
-                  onTap: () => _pickImageForFeature('restore'),
-                ),
-                _QuickActionButton(
-                  icon: Icons.face_retouching_natural,
-                  label: 'Face Swap',
-                  gradient: AppColors.purpleGradient,
-                  onTap: () => Navigator.of(context).pushNamed(AppRoutes.faceSwap),
-                ),
-                _QuickActionButton(
-                  icon: Icons.palette_rounded,
-                  label: 'Styles',
-                  gradient: AppColors.proGradient,
-                  onTap: () => _pickImageForFeature('style'),
-                ),
-              ],
-            ),
-          ).animate().fadeIn(delay: 200.ms),
-        ),
-
-        const SliverToBoxAdapter(child: SizedBox(height: 32)),
-
-        // AI Tools section
-        SliverToBoxAdapter(
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'AI Tools',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                TextButton(
-                  onPressed: () {
-                    setState(() => _currentIndex = 1);
-                  },
-                  child: const Text('See All'),
-                ),
-              ],
-            ),
+          child: _buildSection(
+            title: 'For You',
+            items: [
+              _ImageCardData('Portrait', 'https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?w=400&h=600&fit=crop'),
+              _ImageCardData('Vintage', 'https://images.unsplash.com/photo-1524504388940-b1c1722653e1?w=400&h=600&fit=crop'),
+              _ImageCardData('Neon', 'https://images.unsplash.com/photo-1529626455594-4ff0802cfb7e?w=400&h=600&fit=crop'),
+              _ImageCardData('Artistic', 'https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?w=400&h=600&fit=crop'),
+            ],
           ),
         ),
 
-        const SliverToBoxAdapter(child: SizedBox(height: 16)),
-
-        SliverPadding(
-          padding: const EdgeInsets.symmetric(horizontal: 20),
-          sliver: SliverGrid(
-            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 2,
-              mainAxisSpacing: 16,
-              crossAxisSpacing: 16,
-              childAspectRatio: 1.1,
-            ),
-            delegate: SliverChildListDelegate([
-              FeatureCard(
-                icon: Icons.hd_rounded,
-                title: 'HD Upscale',
-                description: 'Enhance resolution',
-                gradient: const [Color(0xFF00E676), Color(0xFF00C853)],
-                onTap: () => _pickImageForFeature('upscale'),
-              ).animate().fadeIn(delay: 300.ms).scale(begin: const Offset(0.9, 0.9)),
-              FeatureCard(
-                icon: Icons.elderly_rounded,
-                title: 'AI Aging',
-                description: 'Age progression',
-                gradient: const [Color(0xFFFFD93D), Color(0xFFFF8C00)],
-                isPro: true,
-                onTap: () => _pickImageForFeature('aging'),
-              ).animate().fadeIn(delay: 400.ms).scale(begin: const Offset(0.9, 0.9)),
-              FeatureCard(
-                icon: Icons.filter_vintage_rounded,
-                title: 'Filters',
-                description: 'Trending effects',
-                gradient: const [Color(0xFF4FC3F7), Color(0xFF00B0FF)],
-                onTap: () => _pickImageForFeature('filter'),
-              ).animate().fadeIn(delay: 500.ms).scale(begin: const Offset(0.9, 0.9)),
-              FeatureCard(
-                icon: Icons.child_care_rounded,
-                title: 'Baby AI',
-                description: 'Predict babies',
-                gradient: const [Color(0xFFFF6B6B), Color(0xFFE84545)],
-                isPro: true,
-                onTap: () {},
-              ).animate().fadeIn(delay: 600.ms).scale(begin: const Offset(0.9, 0.9)),
-            ]),
-          ),
-        ),
-
-        const SliverToBoxAdapter(child: SizedBox(height: 100)),
+        const SliverToBoxAdapter(child: SizedBox(height: 24)),
       ],
     );
   }
 
-  Widget _buildToolsContent() {
-    return const AIToolsScreen();
-  }
-
-  Widget _buildGalleryContent() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+  Widget _buildTopBar() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
         children: [
-          Icon(Icons.photo_library_outlined, size: 64, color: AppColors.textSecondary),
-          const SizedBox(height: 16),
-          Text(
-            'Your Gallery',
-            style: Theme.of(context).textTheme.titleLarge,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Your edited photos will appear here',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: AppColors.textSecondary,
+          // Settings Icon
+          GestureDetector(
+            onTap: () {
+              setState(() => _currentIndex = 2);
+            },
+            child: Container(
+              padding: const EdgeInsets.all(8),
+              child: Icon(
+                Icons.settings_outlined,
+                size: 24,
+                color: AppColors.textPrimary,
+              ),
             ),
+          ),
+          const SizedBox(width: 12),
+          // Title
+          Text(
+            'Home',
+            style: TextStyle(
+              fontSize: 32,
+              fontWeight: FontWeight.w700,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const Spacer(),
+          // PRO Button
+          BlocBuilder<AuthBloc, AuthState>(
+            builder: (context, state) {
+              return GestureDetector(
+                onTap: () => Navigator.of(context).pushNamed(AppRoutes.subscription),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF7C3AED), Color(0xFFA855F7)],
+                    ),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        Icons.shopping_bag_outlined,
+                        size: 18,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        'PRO',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                          letterSpacing: 1,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
           ),
         ],
       ),
-    );
+    ).animate().fadeIn().slideY(begin: -0.1);
   }
 
-  Widget _buildProfileContent() {
-    return BlocBuilder<AuthBloc, AuthState>(
-      builder: (context, state) {
-        return SingleChildScrollView(
-          padding: const EdgeInsets.all(20),
-          child: Column(
+  Widget _buildFeatureCardsRow() {
+    return SizedBox(
+      height: 100,
+      child: ListView(
+        scrollDirection: Axis.horizontal,
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        children: [
+          _CircularFeatureButton(
+            icon: Icons.auto_awesome,
+            label: 'AI Enhancer',
+            onTap: () => _pickImageForFeature('enhance'),
+          ),
+          _CircularFeatureButton(
+            icon: Icons.photo_filter_outlined,
+            label: 'Restore Old',
+            onTap: () => _pickImageForFeature('restore'),
+          ),
+          _CircularFeatureButton(
+            icon: Icons.face_retouching_natural,
+            label: 'Perfect Selfie',
+            onTap: () => _pickImageForFeature('style'),
+          ),
+          _CircularFeatureButton(
+            icon: Icons.child_care_rounded,
+            label: 'AI Baby',
+            onTap: () => _pickImageForFeature('style'),
+          ),
+          _CircularFeatureButton(
+            icon: Icons.elderly_rounded,
+            label: 'AI Aging',
+            onTap: () => _pickImageForFeature('aging'),
+          ),
+        ],
+      ),
+    ).animate().fadeIn(delay: 100.ms);
+  }
+
+  Widget _buildSection({
+    required String title,
+    required List<_ImageCardData> items,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Section Header
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const SizedBox(height: 20),
-              
-              // Profile header
-              Container(
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: AppColors.cardBackground,
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: AppColors.cardBorder),
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textPrimary,
                 ),
-                child: Column(
+              ),
+              GestureDetector(
+                onTap: () {},
+                child: Row(
                   children: [
-                    CircleAvatar(
-                      radius: 50,
-                      backgroundColor: AppColors.primary,
-                      child: Text(
-                        state.user?.initials ?? '?',
-                        style: const TextStyle(
-                          fontSize: 32,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
                     Text(
-                      state.user?.name ?? 'User',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
+                      'See All',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w500,
+                        color: Color(0xFF7C3AED),
                       ),
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      state.user?.email ?? '',
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textSecondary,
-                      ),
+                    const SizedBox(width: 4),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 20,
+                      color: Color(0xFF7C3AED),
                     ),
-                    if (state.isPro) ...[
-                      const SizedBox(height: 12),
-                      const ProBadge(),
-                    ],
                   ],
                 ),
               ),
-              
-              const SizedBox(height: 24),
-              
-              // Menu items
-              _ProfileMenuItem(
-                icon: Icons.workspace_premium_rounded,
-                title: 'Subscription',
-                subtitle: state.isPro ? 'PRO Plan Active' : 'Upgrade to PRO',
-                onTap: () => Navigator.of(context).pushNamed(AppRoutes.subscription),
-              ),
-              _ProfileMenuItem(
-                icon: Icons.history_rounded,
-                title: 'Edit History',
-                onTap: () => Navigator.of(context).pushNamed(AppRoutes.history),
-              ),
-              _ProfileMenuItem(
-                icon: Icons.settings_rounded,
-                title: 'Settings',
-                onTap: () {},
-              ),
-              _ProfileMenuItem(
-                icon: Icons.help_outline_rounded,
-                title: 'Help & Support',
-                onTap: () {},
-              ),
-              _ProfileMenuItem(
-                icon: Icons.info_outline_rounded,
-                title: 'About',
-                onTap: () {},
-              ),
-              _ProfileMenuItem(
-                icon: Icons.logout_rounded,
-                title: 'Sign Out',
-                iconColor: AppColors.error,
-                onTap: () {
-                  context.read<AuthBloc>().add(const AuthLogoutRequested());
-                  Navigator.of(context).pushReplacementNamed(AppRoutes.login);
-                },
-              ),
             ],
           ),
-        );
-      },
-    );
+        ),
+        const SizedBox(height: 12),
+        // Image Cards
+        SizedBox(
+          height: 180,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: items.length,
+            itemBuilder: (context, index) {
+              return Padding(
+                padding: EdgeInsets.only(right: index < items.length - 1 ? 10 : 0),
+                child: _ImageCard(
+                  label: items[index].label,
+                  imageUrl: items[index].imageUrl,
+                  onTap: () => _pickImageForFeature('style'),
+                ),
+              );
+            },
+          ),
+        ),
+      ],
+    ).animate().fadeIn(delay: 200.ms);
   }
 
   Widget _buildBottomNav() {
     return Container(
       decoration: BoxDecoration(
         color: AppColors.surface,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.2),
-            blurRadius: 20,
-            offset: const Offset(0, -5),
-          ),
-        ],
+        border: Border(
+          top: BorderSide(color: AppColors.cardBorder, width: 1),
+        ),
       ),
       child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
@@ -533,22 +373,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 onTap: () => setState(() => _currentIndex = 0),
               ),
               _NavItem(
-                icon: Icons.auto_fix_high_rounded,
-                label: 'Tools',
+                icon: Icons.auto_fix_high,
+                label: 'AI Tools',
                 isSelected: _currentIndex == 1,
                 onTap: () => setState(() => _currentIndex = 1),
               ),
               _NavItem(
-                icon: Icons.photo_library_rounded,
-                label: 'Gallery',
+                icon: Icons.person_outline,
+                label: 'Mine',
                 isSelected: _currentIndex == 2,
                 onTap: () => setState(() => _currentIndex = 2),
-              ),
-              _NavItem(
-                icon: Icons.person_rounded,
-                label: 'Profile',
-                isSelected: _currentIndex == 3,
-                onTap: () => setState(() => _currentIndex = 3),
               ),
             ],
           ),
@@ -558,48 +392,197 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-class _QuickActionButton extends StatelessWidget {
+class _ImageCardData {
+  final String label;
+  final String imageUrl;
+
+  _ImageCardData(this.label, this.imageUrl);
+}
+
+class _CircularFeatureButton extends StatelessWidget {
   final IconData icon;
   final String label;
-  final List<Color> gradient;
   final VoidCallback onTap;
 
-  const _QuickActionButton({
+  const _CircularFeatureButton({
     required this.icon,
     required this.label,
-    required this.gradient,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.only(right: 12),
+      padding: const EdgeInsets.only(right: 20),
       child: GestureDetector(
         onTap: onTap,
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
+            // Flat circular button - black & white minimal
             Container(
-              width: 64,
-              height: 64,
+              width: 60,
+              height: 60,
               decoration: BoxDecoration(
-                gradient: LinearGradient(colors: gradient),
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: gradient.first.withOpacity(0.4),
-                    blurRadius: 12,
-                    offset: const Offset(0, 4),
-                  ),
-                ],
+                shape: BoxShape.circle,
+                color: AppColors.cardBackground,
+                border: Border.all(
+                  color: AppColors.cardBorder,
+                  width: 1.5,
+                ),
               ),
-              child: Icon(icon, color: Colors.white, size: 28),
+              child: Icon(
+                icon,
+                size: 26,
+                color: AppColors.textPrimary,
+              ),
             ),
             const SizedBox(height: 8),
-            Text(
-              label,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                fontWeight: FontWeight.w500,
+            // Label
+            SizedBox(
+              width: 70,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
+                  color: AppColors.textSecondary,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ImageCard extends StatelessWidget {
+  final String label;
+  final String imageUrl;
+  final VoidCallback onTap;
+
+  const _ImageCard({
+    required this.label,
+    required this.imageUrl,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        width: 120,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(12),
+          color: AppColors.cardBackground,
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.1),
+              blurRadius: 8,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            // Network image
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: CachedNetworkImage(
+                imageUrl: imageUrl,
+                width: double.infinity,
+                height: double.infinity,
+                fit: BoxFit.cover,
+                placeholder: (context, url) => Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0xFF7C3AED).withOpacity(0.4),
+                        Color(0xFFA855F7).withOpacity(0.2),
+                        AppColors.cardBackground,
+                      ],
+                    ),
+                  ),
+                  child: Center(
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: Color(0xFF7C3AED),
+                    ),
+                  ),
+                ),
+                errorWidget: (context, url, error) => Container(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Color(0xFF7C3AED).withOpacity(0.4),
+                        Color(0xFFA855F7).withOpacity(0.2),
+                        AppColors.cardBackground,
+                      ],
+                    ),
+                  ),
+                  child: Center(
+                    child: Icon(
+                      Icons.image_outlined,
+                      size: 48,
+                      color: AppColors.textTertiary.withOpacity(0.5),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // Gradient overlay at bottom
+            Positioned(
+              bottom: 0,
+              left: 0,
+              right: 0,
+              child: Container(
+                height: 60,
+                decoration: BoxDecoration(
+                  borderRadius: const BorderRadius.only(
+                    bottomLeft: Radius.circular(12),
+                    bottomRight: Radius.circular(12),
+                  ),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.transparent,
+                      Colors.black.withOpacity(0.7),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            // Label
+            Positioned(
+              bottom: 8,
+              left: 8,
+              right: 8,
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                  color: Colors.white,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.5),
+                      blurRadius: 4,
+                    ),
+                  ],
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ],
@@ -624,78 +607,43 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final activeColor = Color(0xFF7C3AED);
+    
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            decoration: BoxDecoration(
-              color: isSelected ? AppColors.primary.withOpacity(0.2) : Colors.transparent,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(
-              icon,
-              color: isSelected ? AppColors.primary : AppColors.textTertiary,
-              size: 24,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-              color: isSelected ? AppColors.primary : AppColors.textTertiary,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ProfileMenuItem extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String? subtitle;
-  final Color? iconColor;
-  final VoidCallback onTap;
-
-  const _ProfileMenuItem({
-    required this.icon,
-    required this.title,
-    this.subtitle,
-    this.iconColor,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        onTap: onTap,
-        leading: Container(
-          padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(
-            color: (iconColor ?? AppColors.primary).withOpacity(0.1),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Icon(icon, color: iconColor ?? AppColors.primary),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        padding: EdgeInsets.symmetric(
+          horizontal: isSelected ? 16 : 12,
+          vertical: 8,
         ),
-        title: Text(title),
-        subtitle: subtitle != null ? Text(subtitle!) : null,
-        trailing: const Icon(Icons.chevron_right_rounded),
-        shape: RoundedRectangleBorder(
+        decoration: BoxDecoration(
+          color: isSelected ? activeColor.withOpacity(0.15) : Colors.transparent,
           borderRadius: BorderRadius.circular(12),
         ),
-        tileColor: AppColors.cardBackground,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              icon,
+              color: isSelected ? activeColor : AppColors.textTertiary,
+              size: 24,
+            ),
+            if (isSelected) ...[
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                  color: activeColor,
+                ),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }
 }
-
-

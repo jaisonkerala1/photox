@@ -1,0 +1,354 @@
+{
+  "designSystem": {
+    "appMetadata": {
+      "type": "AI Tools Feature Screen",
+      "platform": "Mobile (Android/iOS)",
+      "orientation": "Portrait",
+      "screenType": "Feature Gallery"
+    },
+    "colorPalette": {
+      "primary": "#7C3AED",
+      "primaryVariant": "#6D28D9",
+      "background": "#FFFFFF",
+      "surface": "#F5F5F7",
+      "cardOverlay": "linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.5) 100%)",
+      "text": {
+        "primary": "#000000",
+        "secondary": "#6B7280",
+        "onImage": "#FFFFFF",
+        "accent": "#7C3AED"
+      },
+      "navigationActive": "#7C3AED",
+      "navigationInactive": "#D1D5DB"
+    },
+    "typography": {
+      "screenTitle": {
+        "size": "32px",
+        "weight": "700",
+        "color": "#000000",
+        "usage": "Main screen title (e.g., 'AI Tools')"
+      },
+      "featureLabel": {
+        "size": "22px",
+        "weight": "600",
+        "color": "#FFFFFF",
+        "usage": "Text overlay on feature cards",
+        "textShadow": "0 2px 8px rgba(0,0,0,0.4)"
+      },
+      "navLabel": {
+        "size": "12px",
+        "weight": "500",
+        "color": "#9CA3AF",
+        "usage": "Bottom navigation labels"
+      }
+    },
+    "spacing": {
+      "screenPadding": "16px",
+      "cardGap": "16px",
+      "topBarPadding": "16px",
+      "bottomNavHeight": "80px",
+      "cardInternalPadding": "20px"
+    },
+    "components": {
+      "topBar": {
+        "height": "60px",
+        "layout": "flex-horizontal",
+        "justifyContent": "space-between",
+        "alignItems": "center",
+        "padding": "16px",
+        "background": "#FFFFFF",
+        "elements": [
+          {
+            "type": "icon",
+            "position": "left",
+            "icon": "settings-gear",
+            "size": "28px",
+            "color": "#000000"
+          },
+          {
+            "type": "text",
+            "position": "center-left",
+            "text": "Screen Title",
+            "style": "screenTitle",
+            "marginLeft": "12px"
+          },
+          {
+            "type": "button",
+            "position": "right",
+            "style": "pill",
+            "background": "linear-gradient(135deg, #7C3AED, #A855F7)",
+            "padding": "10px 20px",
+            "borderRadius": "24px",
+            "icon": "crown",
+            "iconSize": "16px",
+            "text": "PRO",
+            "fontSize": "16px",
+            "fontWeight": "700",
+            "color": "#FFFFFF"
+          }
+        ]
+      },
+      "beforeAfterCard": {
+        "width": "calc(100vw - 32px)",
+        "aspectRatio": "16:9",
+        "borderRadius": "20px",
+        "overflow": "hidden",
+        "position": "relative",
+        "marginHorizontal": "16px",
+        "marginBottom": "16px",
+        "layout": "split-comparison",
+        "elements": [
+          {
+            "type": "imageContainer",
+            "split": "vertical-center",
+            "leftSide": {
+              "type": "image",
+              "width": "50%",
+              "filter": "original",
+              "opacity": 1
+            },
+            "rightSide": {
+              "type": "image",
+              "width": "50%",
+              "filter": "enhanced",
+              "opacity": 1
+            }
+          },
+          {
+            "type": "divider",
+            "position": "center-vertical",
+            "width": "2px",
+            "height": "100%",
+            "background": "#FFFFFF",
+            "opacity": 0.8
+          },
+          {
+            "type": "gradientOverlay",
+            "position": "bottom",
+            "height": "40%",
+            "background": "linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.6) 100%)"
+          },
+          {
+            "type": "label",
+            "position": "bottom-left",
+            "padding": "20px",
+            "style": "featureLabel",
+            "color": "#FFFFFF"
+          }
+        ],
+        "shadow": "0 4px 16px rgba(0,0,0,0.12)"
+      },
+      "fullWidthFeatureCard": {
+        "width": "calc(100vw - 32px)",
+        "aspectRatio": "16:9",
+        "borderRadius": "20px",
+        "overflow": "hidden",
+        "position": "relative",
+        "marginHorizontal": "16px",
+        "marginBottom": "16px",
+        "elements": [
+          {
+            "type": "image",
+            "width": "100%",
+            "height": "100%",
+            "fit": "cover"
+          },
+          {
+            "type": "gradientOverlay",
+            "position": "bottom",
+            "height": "40%",
+            "background": "linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.6) 100%)"
+          },
+          {
+            "type": "label",
+            "position": "bottom-left",
+            "padding": "20px",
+            "style": "featureLabel",
+            "color": "#FFFFFF",
+            "textShadow": "0 2px 8px rgba(0,0,0,0.4)"
+          },
+          {
+            "type": "decorativeIcon",
+            "position": "top-right",
+            "icon": "sparkles",
+            "size": "40px",
+            "color": "#FFFFFF",
+            "opacity": 0.9,
+            "margin": "20px",
+            "optional": true
+          }
+        ],
+        "shadow": "0 4px 16px rgba(0,0,0,0.12)"
+      },
+      "bottomNavigation": {
+        "height": "80px",
+        "background": "#FFFFFF",
+        "borderRadius": "24px 24px 0 0",
+        "boxShadow": "0 -2px 16px rgba(0,0,0,0.08)",
+        "layout": "flex-horizontal",
+        "justifyContent": "space-around",
+        "alignItems": "center",
+        "padding": "12px 24px",
+        "position": "fixed",
+        "bottom": 0,
+        "elements": [
+          {
+            "type": "navItem",
+            "layout": "flex-vertical",
+            "alignItems": "center",
+            "gap": "4px",
+            "elements": [
+              {
+                "type": "icon",
+                "size": "24px",
+                "activeColor": "#7C3AED",
+                "inactiveColor": "#D1D5DB"
+              },
+              {
+                "type": "label",
+                "style": "navLabel",
+                "activeColor": "#7C3AED",
+                "inactiveColor": "#9CA3AF"
+              }
+            ]
+          }
+        ],
+        "activeIndicator": {
+          "type": "none",
+          "style": "color-change"
+        }
+      },
+      "adBanner": {
+        "height": "50px",
+        "background": "#FFFFFF",
+        "border": "1px solid #E5E7EB",
+        "borderRadius": "8px",
+        "display": "flex-horizontal",
+        "alignItems": "center",
+        "justifyContent": "center",
+        "margin": "16px",
+        "position": "above-bottom-nav",
+        "elements": [
+          {
+            "type": "badge",
+            "text": "AD",
+            "background": "#E5E7EB",
+            "color": "#6B7280",
+            "borderRadius": "4px",
+            "padding": "4px 8px",
+            "fontSize": "12px",
+            "fontWeight": "600"
+          },
+          {
+            "type": "text",
+            "text": "loading...",
+            "color": "#9CA3AF",
+            "fontSize": "14px",
+            "marginLeft": "8px"
+          }
+        ]
+      }
+    },
+    "layoutStructure": {
+      "screen": {
+        "background": "#FFFFFF",
+        "sections": [
+          {
+            "type": "topBar",
+            "fixed": false,
+            "scrollWithContent": true
+          },
+          {
+            "type": "scrollableContent",
+            "paddingTop": "16px",
+            "paddingBottom": "140px",
+            "cards": [
+              {
+                "type": "beforeAfterCard",
+                "order": 1
+              },
+              {
+                "type": "beforeAfterCard",
+                "order": 2
+              },
+              {
+                "type": "fullWidthFeatureCard",
+                "order": 3,
+                "partiallyVisible": true
+              }
+            ]
+          },
+          {
+            "type": "adBanner",
+            "position": "above-bottom-nav",
+            "fixed": true
+          },
+          {
+            "type": "bottomNavigation",
+            "fixed": true,
+            "zIndex": 100
+          }
+        ]
+      }
+    },
+    "visualStyle": {
+      "borderRadius": {
+        "small": "8px",
+        "medium": "16px",
+        "large": "20px",
+        "xlarge": "24px"
+      },
+      "shadows": {
+        "card": "0 4px 16px rgba(0,0,0,0.12)",
+        "navigation": "0 -2px 16px rgba(0,0,0,0.08)",
+        "subtle": "0 2px 8px rgba(0,0,0,0.08)"
+      },
+      "overlays": {
+        "imageGradient": "linear-gradient(180deg, transparent 0%, rgba(0,0,0,0.6) 100%)",
+        "splitDivider": "2px solid rgba(255,255,255,0.8)"
+      },
+      "imageEffects": {
+        "fit": "cover",
+        "loading": "lazy",
+        "comparison": "split-vertical"
+      }
+    },
+    "interactionPatterns": {
+      "cardTap": "Navigate to feature detail or activate tool",
+      "beforeAfterCard": "Visual demonstration of feature effect, may include interactive slider",
+      "bottomNav": "Switch between main app sections with color state change",
+      "proButton": "Navigate to subscription/premium upgrade flow",
+      "scrollBehavior": "Vertical scroll with cards stacked, slight parallax optional"
+    },
+    "designPrinciples": {
+      "overall": "Bold, visual-first design showcasing AI capabilities through before/after demonstrations",
+      "imagePresentation": "Full-width cards with dramatic comparisons and split-screen effects",
+      "textOnImages": "White text with strong shadows for readability over photos",
+      "navigation": "Minimalist bottom navigation with icon + label, active state via color",
+      "hierarchy": "Large feature cards dominate screen, minimal text distractions",
+      "visualDemonstration": "Before/after split-screen comparisons to showcase AI enhancements",
+      "whitespace": "Minimal whitespace between cards for immersive gallery feel",
+      "accessibility": "High contrast text overlays, clear touch targets"
+    },
+    "cardVariations": {
+      "splitComparison": {
+        "description": "Before/after split down the middle",
+        "divider": "Vertical white line",
+        "labelPosition": "bottom-left",
+        "visualWeight": "high"
+      },
+      "fullImage": {
+        "description": "Single enhanced image with decorative elements",
+        "decorations": "Sparkle icons for AI effects",
+        "labelPosition": "bottom-left",
+        "visualWeight": "high"
+      }
+    },
+    "contentStrategy": {
+      "cardOrder": "Feature cards stacked vertically in priority order",
+      "scrollDepth": "3-5 major features per screen",
+      "visualHierarchy": "Equal-sized cards for consistent scanning pattern",
+      "callToAction": "Pro button persistent in top bar"
+    }
+  }
+}

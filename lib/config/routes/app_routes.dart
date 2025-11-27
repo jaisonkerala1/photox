@@ -72,7 +72,7 @@ class AppRoutes {
       case enhance:
         final args = settings.arguments as Map<String, dynamic>?;
         return _slideRoute(
-          EnhanceScreen(imagePath: args?['imagePath'] ?? ''),
+          EnhanceScreen(imagePath: args?['imagePath']),
           settings,
         );
 
@@ -179,5 +179,8 @@ class AppRoutes {
     );
   }
 }
+
+
+
 
 

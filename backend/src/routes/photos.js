@@ -20,3 +20,6 @@ router.delete('/:id', auth, photoController.deletePhoto);
 module.exports = router;
 
 
+
+
+
