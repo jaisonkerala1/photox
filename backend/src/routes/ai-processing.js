@@ -10,7 +10,7 @@ router.get('/status', (req, res) => {
   res.json({
     status: 'OK',
     provider: 'Google Gemini',
-    model: 'gemini-2.0-flash-exp',
+    model: 'gemini-3-pro-image-preview',
     apiKeyPresent: !!process.env.GOOGLE_AI_API_KEY,
     apiKeyLength: process.env.GOOGLE_AI_API_KEY ? process.env.GOOGLE_AI_API_KEY.length : 0,
     timestamp: new Date().toISOString(),

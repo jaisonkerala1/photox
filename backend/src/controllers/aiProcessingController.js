@@ -7,10 +7,14 @@ const { GoogleGenerativeAI } = require('@google/generative-ai');
 const GOOGLE_API_KEY = process.env.GOOGLE_AI_API_KEY;
 const genAI = GOOGLE_API_KEY ? new GoogleGenerativeAI(GOOGLE_API_KEY) : null;
 
+// Model name - Gemini 3 Pro Image Preview (native image generation)
+// https://ai.google.dev/gemini-api/docs/pricing#gemini-3-pro-image-preview
+const MODEL_NAME = 'gemini-3-pro-image-preview';
+
 // Debug: Log API key status on startup
 console.log('=== AI Processing Controller Loaded ===');
 console.log('GOOGLE_AI_API_KEY present:', !!GOOGLE_API_KEY);
-console.log('Using Google Gemini API directly');
+console.log('Using model:', MODEL_NAME);
 
 // Enhancement prompts based on mode - simple and natural
 // IMPORTANT: Preserve facial identity exactly - this is an enhancer, not a generator
@@ -41,8 +45,9 @@ async function callGeminiForImage(prompt, imageBase64, mimeType) {
     throw new Error('Google AI not initialized. Check GOOGLE_AI_API_KEY.');
   }
 
+  // Use Gemini 3 Pro Image Preview for native image generation
   const model = genAI.getGenerativeModel({ 
-    model: 'gemini-2.0-flash-exp',
+    model: MODEL_NAME,
     generationConfig: {
       responseModalities: ['image', 'text'],
     },
@@ -182,7 +187,7 @@ exports.enhancePublic = async (req, res, next) => {
     console.log('[EnhancePublic] Using prompt:', prompt.substring(0, 50) + '...');
 
     try {
-      console.log('[EnhancePublic] Calling Google Gemini API with model: gemini-2.0-flash-exp');
+      console.log('[EnhancePublic] Calling Google Gemini API with model:', MODEL_NAME);
       
       const result = await callGeminiForImage(prompt, imageBase64, mimeType);
       const { enhancedImageData, responseText } = extractImageFromResponse(result);
